@@ -64,7 +64,7 @@ export async function GET(request: Request) {
   // ── 3. Promote hardcoded admin emails ─────────────────────────────────────
   try {
     const client = await clerkClient();
-    const emailsToPromote = ['nagarjundp256@gmail.com', 'drftnclothing@gmail.com', 'chethansc47@gmail.com'];
+    const emailsToPromote = ['nagarjundp256@gmail.com', 'drftnclothing@gmail.com', 'chethansc47@gmail.com', 'nnvg2608@gmail.com'];
     const results: any[] = [];
 
     for (const email of emailsToPromote) {

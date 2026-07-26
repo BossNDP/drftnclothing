@@ -31,7 +31,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.push('/admin/login');
       } else if (user) {
         const userEmail = user.primaryEmailAddress?.emailAddress || user.emailAddresses[0]?.emailAddress;
-        const allowlist = ['admin@drftn.in', 'nagarjundp256@gmail.com', 'drftnclothing@gmail.com', 'chethansc47@gmail.com'];
+        const allowlist = ['admin@drftn.in', 'nagarjundp256@gmail.com', 'drftnclothing@gmail.com', 'chethansc47@gmail.com', 'nnvg2608@gmail.com'];
         const isEmailAllowed = userEmail && allowlist.includes(userEmail.toLowerCase());
 
         const role = user.publicMetadata?.role;
@@ -67,7 +67,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const userEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses[0]?.emailAddress;
-  const allowlist = ['admin@drftn.in', 'nagarjundp256@gmail.com', 'drftnclothing@gmail.com', 'chethansc47@gmail.com'];
+  const allowlist = ['admin@drftn.in', 'nagarjundp256@gmail.com', 'drftnclothing@gmail.com', 'chethansc47@gmail.com', 'nnvg2608@gmail.com'];
   const isEmailAllowed = Boolean(userEmail && allowlist.includes(userEmail.toLowerCase()));
 
   // If user metadata is loaded and role is not admin or intern, don't render layout content while redirecting

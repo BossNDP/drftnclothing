@@ -50,19 +50,63 @@ const msgVariants = {
 export default function AnnouncementTicker() {
   const [idx, setIdx] = useState(0);
   const [barKey, setBarKey] = useState(0);
+  const containerRef = React.useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const t = setInterval(() => {
-      setIdx((p) => (p + 1) % MESSAGES.length);
-      setBarKey((k) => k + 1);
-    }, DURATION);
-    return () => clearInterval(t);
+    let t: NodeJS.Timeout | null = null;
+    const el = containerRef.current;
+
+    const start = () => {
+      if (!t && !document.hidden) {
+        t = setInterval(() => {
+          setIdx((p) => (p + 1) % MESSAGES.length);
+          setBarKey((k) => k + 1);
+        }, DURATION);
+      }
+    };
+
+    const stop = () => {
+      if (t) {
+        clearInterval(t);
+        t = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) stop();
+      else start();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    if (typeof IntersectionObserver !== 'undefined' && el) {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) start();
+          else stop();
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(el);
+      return () => {
+        stop();
+        observer.disconnect();
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    } else {
+      start();
+      return () => {
+        stop();
+        document.removeEventListener('visibilitychange', handleVisibility);
+      };
+    }
   }, []);
 
   const msg = MESSAGES[idx];
 
   return (
     <section
+      ref={containerRef}
       className="relative border-y border-[#2A2A2A] bg-brand-black select-none overflow-hidden"
       aria-label="Announcement"
       aria-live="polite"

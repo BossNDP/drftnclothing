@@ -1585,25 +1585,30 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                 accept="image/*"
                 className="hidden"
                 onChange={async (e) => {
-                  const files = e.target.files;
-                  if (!files || files.length === 0) return;
-                  
-                  // The first file goes into the AI Studio modal
-                  processImageBackground(files[0]);
+                  const rawFiles = Array.from(e.target.files || []);
+                  if (rawFiles.length === 0) return;
 
-                  // Upload remaining files directly in the background
-                  if (files.length > 1) {
-                    const validFiles: File[] = [];
-                    for (let i = 1; i < files.length; i++) {
-                      const file = files[i];
-                      if (file.size <= 5 * 1024 * 1024 && ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                        validFiles.push(file);
-                      }
-                    }
-                    if (validFiles.length > 0) {
-                      uploadRemainingImagesDirectly(validFiles);
-                    }
+                  const validFiles = rawFiles.filter(
+                    (f) => f.size <= 5 * 1024 * 1024 && ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
+                  );
+
+                  if (validFiles.length < rawFiles.length) {
+                    addToast(`${rawFiles.length - validFiles.length} file(s) ignored (exceeded 5MB or invalid format).`, 'info');
                   }
+                  if (validFiles.length === 0) return;
+
+                  if (removeBgToggle) {
+                    // Background Removal ON: process first image with AI cutout Studio
+                    processImageBackground(validFiles[0]);
+                    if (validFiles.length > 1) {
+                      uploadRemainingImagesDirectly(validFiles.slice(1));
+                    }
+                  } else {
+                    // Background Removal OFF: upload ALL images directly to Cloudinary
+                    uploadRemainingImagesDirectly(validFiles);
+                  }
+
+                  e.target.value = '';
                 }}
               />
               <input
@@ -1613,9 +1618,16 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                 capture="environment"
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    processImageBackground(e.target.files[0]);
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  if (removeBgToggle) {
+                    processImageBackground(file);
+                  } else {
+                    uploadRemainingImagesDirectly([file]);
                   }
+
+                  e.target.value = '';
                 }}
               />
 
@@ -1651,8 +1663,25 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
-                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                      processImageBackground(e.dataTransfer.files[0]);
+                    const rawFiles = Array.from(e.dataTransfer.files || []);
+                    if (rawFiles.length === 0) return;
+
+                    const validFiles = rawFiles.filter(
+                      (f) => f.size <= 5 * 1024 * 1024 && ['image/jpeg', 'image/png', 'image/webp'].includes(f.type)
+                    );
+
+                    if (validFiles.length < rawFiles.length) {
+                      addToast(`${rawFiles.length - validFiles.length} file(s) ignored (exceeded 5MB or invalid format).`, 'info');
+                    }
+                    if (validFiles.length === 0) return;
+
+                    if (removeBgToggle) {
+                      processImageBackground(validFiles[0]);
+                      if (validFiles.length > 1) {
+                        uploadRemainingImagesDirectly(validFiles.slice(1));
+                      }
+                    } else {
+                      uploadRemainingImagesDirectly(validFiles);
                     }
                   }}
                 >

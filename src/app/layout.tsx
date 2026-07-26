@@ -10,7 +10,6 @@ import AddToCartAnimation from '@/components/AddToCartAnimation';
 import BrandLoader from '@/components/BrandLoader';
 import PushPrompt from '@/components/PushPrompt';
 import NotificationToast from '@/components/NotificationToast';
-import CustomCursor from '@/components/CustomCursor';
 import PageTransition from '@/components/PageTransition';
 import SmoothScrollProvider from '@/components/SmoothScrollProvider';
 import { ClerkProvider } from '@clerk/nextjs';
@@ -211,7 +210,6 @@ export default function RootLayout({
               <BrandLoader />
               <PushPrompt />
               <NotificationToast />
-              <CustomCursor />
               {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
               <div id="clerk-captcha" />
             </AuthSessionProvider>

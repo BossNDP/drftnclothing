@@ -93,7 +93,7 @@ export default function SignatureGallery({
   onClick,
   layoutId,
   imageWidth = 1200,
-  autoSlideInterval = 4500,
+  autoSlideInterval = 0,
 }: SignatureGalleryProps) {
   const [localIndex, setLocalIndex] = useState(activeIndex);
   const dragStartX = useRef(0);
@@ -125,9 +125,9 @@ export default function SignatureGallery({
     pausedUntilRef.current = Date.now() + 7000;
   }, []);
 
-  // Auto-sliding interval
+  // Auto-sliding interval — only runs if autoSlideInterval > 0
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || !autoSlideInterval || autoSlideInterval <= 0) return;
 
     const timer = setInterval(() => {
       if (Date.now() < pausedUntilRef.current) return;
@@ -211,7 +211,7 @@ export default function SignatureGallery({
 
       {/* Overlays */}
       {overlayLeft && (
-        <div className="absolute top-3 left-3 z-20 pointer-events-none">{overlayLeft}</div>
+        <div className="absolute bottom-3 left-3 z-20 pointer-events-none">{overlayLeft}</div>
       )}
       {overlayRight && (
         <div className="absolute top-3 right-3 z-20 pointer-events-none">{overlayRight}</div>

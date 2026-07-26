@@ -63,6 +63,9 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   const marqueeColsRef = useRef<(HTMLDivElement | null)[]>([]);
 
   const currentBucketRef = useRef<number>(0);
+  const particle1Ref = useRef<HTMLDivElement>(null);
+  const particle2Ref = useRef<HTMLDivElement>(null);
+  const particle3Ref = useRef<HTMLDivElement>(null);
   const [isLowEndDevice, setIsLowEndDevice] = useState<boolean>(false);
 
   const marqueeCols = React.useMemo(() => {
@@ -264,7 +267,12 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         tl.to(headlineBlockEl, { yPercent: -10, ease: 'none', duration: 1.0 }, 0.0);
       }
 
-      // 5. Marquee Columns Parallax
+      // 5. Floating Particle / Depth Elements Parallax
+      if (particle1Ref.current) tl.to(particle1Ref.current, { yPercent: -35, ease: 'none', duration: 1.0 }, 0.0);
+      if (particle2Ref.current) tl.to(particle2Ref.current, { yPercent: 45, ease: 'none', duration: 1.0 }, 0.0);
+      if (particle3Ref.current) tl.to(particle3Ref.current, { yPercent: -25, ease: 'none', duration: 1.0 }, 0.0);
+
+      // 6. Marquee Columns Parallax
       marqueeColsRef.current.forEach((col, idx) => {
         if (!col) return;
         const scrollUp = idx % 2 === 0;
@@ -280,7 +288,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
       });
     });
 
-    // MOBILE TIMELINE (<768px) - Single Consolidated Timeline
+    // MOBILE TIMELINE (<768px) - Lightweight Unpinned / Short Pin Timeline
     mm.add('(max-width: 767px)', () => {
       gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
       gsap.set(hoodieDarkEl, {
@@ -307,26 +315,26 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         scrollTrigger: {
           trigger: containerEl,
           start: 'top top',
-          end: '+=120',
-          scrub: 0.8,
+          end: '+=100%',
+          scrub: 0.5,
           fastScrollEnd: true,
           onEnter: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
               willChange: 'transform, opacity, clip-path',
             });
           },
           onEnterBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
               willChange: 'transform, opacity, clip-path',
             });
           },
           onLeave: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
               clearProps: 'willChange',
             });
           },
           onLeaveBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
+            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
               clearProps: 'willChange',
             });
           },
@@ -389,6 +397,9 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
           0.0
         );
       }
+
+      if (particle1Ref.current) mobileTl.to(particle1Ref.current, { yPercent: -20, ease: 'none', duration: 1.0 }, 0.0);
+      if (particle2Ref.current) mobileTl.to(particle2Ref.current, { yPercent: 25, ease: 'none', duration: 1.0 }, 0.0);
     });
 
     return () => {
@@ -400,7 +411,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-black select-none h-[160vh] md:h-[180vh]"
+      className="relative w-full bg-black select-none h-[120vh] md:h-[150vh]"
       id="hero-scene"
     >
       <div
@@ -465,6 +476,37 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
               ref={hoodieStageRef}
               className="hoodie-stage relative w-[88vw] sm:w-[84vw] md:w-[520px] lg:w-[580px] max-w-[460px] md:max-w-none h-[46vh] sm:h-[50vh] md:h-full flex items-center justify-center"
             >
+              {/* Parallax Depth Particle Accent 1: Top Left Torn Spec Badge */}
+              <div
+                ref={particle1Ref}
+                className="absolute top-2 left-2 sm:left-4 z-20 pointer-events-none transform-gpu"
+              >
+                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 bg-black/75 px-2 py-0.5 uppercase border border-white/15 backdrop-blur-xs rounded-sm">
+                  SPEC // 380GSM
+                </span>
+              </div>
+
+              {/* Parallax Depth Particle Accent 2: Top Right Industrial Accent Line */}
+              <div
+                ref={particle2Ref}
+                className="absolute top-4 right-2 sm:right-6 z-20 pointer-events-none transform-gpu flex flex-col items-end space-y-1"
+              >
+                <div className="w-10 h-[1px] bg-white/30" />
+                <span className="text-[8px] font-mono text-white/40 tracking-widest uppercase">
+                  D2C CUT
+                </span>
+              </div>
+
+              {/* Parallax Depth Particle Accent 3: Bottom Right Floating Pill */}
+              <div
+                ref={particle3Ref}
+                className="absolute bottom-10 right-4 hidden sm:block z-20 pointer-events-none transform-gpu"
+              >
+                <div className="w-3 h-3 rounded-full border border-white/40 flex items-center justify-center">
+                  <div className="w-1 h-1 rounded-full bg-white/70 animate-ping" />
+                </div>
+              </div>
+
               {/* Hoodie Base: Light / Cream Edition (ALWAYS opacity: 1) */}
               <div
                 ref={hoodieLightRef}

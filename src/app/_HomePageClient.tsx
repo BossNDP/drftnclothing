@@ -20,6 +20,61 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
+function getProductBadge(product: Product): { label: string; containerClass: string; dotClass?: string } | null {
+  const totalStock = product.sizes.reduce((acc, s) => acc + (product.stock_quantity[s] || 0), 0);
+
+  // 1. GONE (Out of Stock)
+  if (totalStock === 0) {
+    return {
+      label: 'GONE',
+      containerClass: 'bg-zinc-950/90 text-zinc-400 border border-zinc-700/60 backdrop-blur-md px-2.5 py-0.5 rounded-sm text-[9px] font-mono font-bold tracking-[0.18em]',
+    };
+  }
+
+  // 2. LOW STOCK (Dynamic inventory threshold <= 8)
+  if (totalStock > 0 && totalStock <= 8) {
+    return {
+      label: `LOW STOCK · ${totalStock} LEFT`,
+      containerClass: 'bg-rose-950/90 text-rose-300 border border-rose-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.16em] shadow-[0_0_12px_rgba(244,63,94,0.3)]',
+      dotClass: 'bg-rose-400 animate-pulse',
+    };
+  }
+
+  // 3. BESTSELLER (Selective Hero / Top-selling SKU curation only)
+  const isBestseller = Boolean(
+    (product as any).is_bestseller ||
+    (product as any).is_bestseller_hero ||
+    product.slug === 'striped-knit-polo'
+  );
+
+  if (isBestseller) {
+    return {
+      label: 'BESTSELLER',
+      containerClass: 'bg-amber-950/90 text-amber-300 border border-amber-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.18em] shadow-[0_0_12px_rgba(245,158,11,0.3)]',
+      dotClass: 'bg-amber-400',
+    };
+  }
+
+  // 4. NEW DROP (Selective explicit boolean / hero drop curation only — no blanket catalog tag)
+  const isNew = Boolean(
+    (product as any).is_new ||
+    (product as any).is_new_drop ||
+    product.slug === 'knitted-drop-polo' ||
+    product.slug === 'washed-plaid-overshirt'
+  );
+
+  if (isNew) {
+    return {
+      label: 'NEW DROP',
+      containerClass: 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.18em] shadow-[0_0_12px_rgba(16,185,129,0.3)]',
+      dotClass: 'bg-emerald-400 animate-pulse',
+    };
+  }
+
+  // 5. Standard catalog item → NO BADGE AT ALL (Clean & Premium)
+  return null;
+}
+
 /* ──────────────────────────────────────────
    STOREFRONT TILE (Editorial Product Showcase Tile)
    ────────────────────────────────────────── */
@@ -48,6 +103,8 @@ function StorefrontTile({
       ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100)
       : null;
 
+  const badge = getProductBadge(product);
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
@@ -71,7 +128,7 @@ function StorefrontTile({
 
   return (
     <div
-      className={`showcase-tile group flex flex-col bg-transparent w-full text-left relative ${
+      className={`showcase-tile group flex flex-col bg-transparent w-full text-left relative transform-gpu transition-all duration-300 ease-out hover:-translate-y-1 ${
         isHero ? 'col-span-2 row-span-2 md:col-span-2 md:row-span-2' : 'col-span-1 md:col-span-1'
       }`}
       onMouseEnter={() => setIsHovered(true)}
@@ -85,106 +142,102 @@ function StorefrontTile({
         aria-label={`View ${product.name} — ₹${(product.price / 100).toLocaleString('en-IN')}`}
       >
         <div
-          className={`product-card relative overflow-hidden rounded-sm bg-zinc-950 w-full border border-white/10 group-hover:border-white/30 transition-colors duration-300 ${
+          className={`product-card relative overflow-hidden rounded-sm bg-zinc-950 w-full border border-white/10 group-hover:border-white/40 transition-all duration-400 shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${
             isHero ? 'aspect-[4/5]' : 'aspect-[3/4]'
           }`}
         >
-          {/* Primary Image */}
-          <Image
-            src={getOptimizedImageUrl(primaryImage, isHero ? 1000 : 600)}
-            alt={product.name}
-            fill
-            sizes={isHero ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 50vw, 25vw'}
-            className="object-cover select-none pointer-events-none"
-            style={{
-              opacity: (isHovered || touchActive) && hasSecondImage ? 0 : 1,
-              transition: 'opacity 400ms cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-          />
-
-          {/* Secondary Image (Crossfade on Hover/Touch) */}
-          {hasSecondImage && (
+          {/* Primary Image with 1.0 -> 1.04 Scale Hover */}
+          <div className="absolute inset-0 overflow-hidden">
             <Image
-              src={getOptimizedImageUrl(secondaryImage, isHero ? 1000 : 600)}
-              alt={`${product.name} detail`}
+              src={getOptimizedImageUrl(primaryImage, isHero ? 1000 : 600)}
+              alt={product.name}
               fill
               sizes={isHero ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 50vw, 25vw'}
-              className="object-cover select-none pointer-events-none"
+              className="object-cover select-none pointer-events-none transform-gpu transition-transform duration-500 group-hover:scale-[1.04]"
               style={{
-                opacity: isHovered || touchActive ? 1 : 0,
-                transition: 'opacity 400ms cubic-bezier(0.16, 1, 0.3, 1)',
+                opacity: (isHovered || touchActive) && hasSecondImage ? 0 : 1,
+                transition: 'opacity 400ms cubic-bezier(0.16, 1, 0.3, 1), transform 500ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
             />
-          )}
 
-          {/* Top-Left Corner Badge: GONE / FEATURED / NEW */}
-          <div className="absolute top-3 left-3 z-20 pointer-events-none">
-            {isOutOfStock ? (
-              <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-white/60 bg-black/75 px-2 py-0.5 uppercase backdrop-blur-sm border border-white/10">
-                GONE
-              </span>
-            ) : product.is_featured ? (
-              <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-white bg-black/80 px-2 py-0.5 uppercase backdrop-blur-sm border border-white/20">
-                FEATURED
-              </span>
-            ) : (
-              <span className="text-[10px] font-mono font-bold tracking-[0.16em] text-white/90 bg-black/60 px-2 py-0.5 uppercase backdrop-blur-sm border border-white/10">
-                NEW
-              </span>
+            {/* Secondary Image (Crossfade on Hover/Touch) */}
+            {hasSecondImage && (
+              <Image
+                src={getOptimizedImageUrl(secondaryImage, isHero ? 1000 : 600)}
+                alt={`${product.name} detail`}
+                fill
+                sizes={isHero ? '(max-width: 768px) 100vw, 50vw' : '(max-width: 768px) 50vw, 25vw'}
+                className="object-cover select-none pointer-events-none transform-gpu transition-transform duration-500 group-hover:scale-[1.04]"
+                style={{
+                  opacity: isHovered || touchActive ? 1 : 0,
+                  transition: 'opacity 400ms cubic-bezier(0.16, 1, 0.3, 1), transform 500ms cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+              />
             )}
           </div>
+
+          {/* Bottom-Left Selective Badge Taxonomy (Positioned safely away from model faces with local scrim) */}
+          {badge && (
+            <div className="absolute bottom-3 left-3 z-20 pointer-events-none p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
+              <span className={`inline-flex items-center gap-1.5 uppercase ${badge.containerClass}`}>
+                {badge.dotClass && <span className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />}
+                {badge.label}
+              </span>
+            </div>
+          )}
 
           {/* Top-Right Corner Badge: Discount Tag (-X%) */}
           {discountPercent !== null && (
             <div className="absolute top-3 right-3 z-20 pointer-events-none">
-              <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-white bg-red-600/90 px-2 py-0.5 uppercase backdrop-blur-sm border border-red-500/40">
+              <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-white bg-red-600/90 px-2 py-0.5 uppercase backdrop-blur-sm border border-red-500/40 rounded-sm">
                 -{discountPercent}%
               </span>
             </div>
           )}
 
           {/* Bottom subtle gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none z-[11]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none z-[11]" />
 
-          {/* Quick Add Button */}
+          {/* Quick Add Button with Scale-Bounce & Green Flash Micro-Interaction */}
           {!isOutOfStock && (
             <div className="absolute bottom-3 right-3 z-20">
               <button
                 type="button"
                 onClick={handleQuickAddClick}
                 disabled={isAdding}
-                className={`w-8 h-8 rounded-none flex items-center justify-center transition-all duration-200 active:scale-90 border ${
+                className={`w-9 h-9 rounded-sm flex items-center justify-center transition-all duration-300 active:scale-85 border shadow-xl ${
                   isAdding
-                    ? 'bg-white text-black border-white'
-                    : 'bg-black/60 hover:bg-black/90 text-white border-white/20 backdrop-blur-sm'
+                    ? 'bg-emerald-400 text-black border-emerald-300 scale-110 shadow-[0_0_20px_rgba(52,211,153,0.8)] animate-scale-bounce'
+                    : 'bg-black/80 hover:bg-white hover:text-black text-white border-white/30 backdrop-blur-md hover:scale-105'
                 }`}
                 aria-label={`Quick add ${product.name} to cart`}
               >
                 {isAdding ? (
-                  <span className="text-[10px] font-mono font-bold">✓</span>
+                  <span className="text-sm font-mono font-black text-black">✓</span>
                 ) : (
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90" />
                 )}
               </button>
             </div>
           )}
         </div>
 
-        {/* Details & Minimal Price Line */}
-        <div className="pt-2.5 pb-2 flex flex-col text-left space-y-1">
-          <h3
-            className={`font-display text-white tracking-[0.08em] uppercase line-clamp-1 ${
-              isHero ? 'text-sm md:text-base font-extrabold' : 'text-xs font-bold'
-            }`}
-          >
+        {/* Details & Rebalanced Title / Price Hierarchy */}
+        <div className="pt-3 pb-3 flex flex-col text-left space-y-1">
+          <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-[0.2em] font-medium">
+            {product.category || 'DRFTN ARCHIVE'}
+          </p>
+          {/* Muted light weight title */}
+          <h3 className="text-xs font-medium text-white/70 tracking-wide uppercase line-clamp-1 group-hover:text-white transition-colors">
             {product.name}
           </h3>
-          <div className="flex items-baseline gap-2 font-mono text-xs md:text-sm">
-            <span className="text-white font-medium">
+          {/* Dominant visual anchor price */}
+          <div className="flex items-baseline gap-2 font-mono pt-0.5">
+            <span className="text-base md:text-lg font-black text-white tracking-tight drop-shadow-sm">
               ₹{(product.price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
             </span>
             {product.compare_price && product.compare_price > product.price && (
-              <span className="text-zinc-400 line-through font-normal text-[10px] md:text-xs">
+              <span className="text-xs text-zinc-500 line-through font-normal">
                 ₹{(product.compare_price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
               </span>
             )}

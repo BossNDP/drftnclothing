@@ -47,12 +47,46 @@ export default function BrandStorySection() {
   const photosRef = useRef<(HTMLDivElement | null)[]>([]);
   const [wordIndex, setWordIndex] = useState(0);
 
-  // Cycling words timer
+  // Cycling words timer — visibility-gated via IntersectionObserver so timer pauses when off-screen
   useEffect(() => {
-    const timer = setInterval(() => {
-      setWordIndex((prev) => (prev + 1) % CYCLING_WORDS.length);
-    }, 2200);
-    return () => clearInterval(timer);
+    let timer: NodeJS.Timeout | null = null;
+    const sectionEl = sectionRef.current;
+
+    const startTimer = () => {
+      if (!timer) {
+        timer = setInterval(() => {
+          setWordIndex((prev) => (prev + 1) % CYCLING_WORDS.length);
+        }, 2200);
+      }
+    };
+
+    const stopTimer = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    if (typeof IntersectionObserver !== 'undefined' && sectionEl) {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            startTimer();
+          } else {
+            stopTimer();
+          }
+        },
+        { threshold: 0.1 }
+      );
+      observer.observe(sectionEl);
+      return () => {
+        stopTimer();
+        observer.disconnect();
+      };
+    } else {
+      startTimer();
+      return () => stopTimer();
+    }
   }, []);
 
   // GSAP Scroll-scrubbed assembly animation

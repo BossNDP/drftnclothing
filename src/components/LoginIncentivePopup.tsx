@@ -58,13 +58,12 @@ export default function LoginIncentivePopup() {
       }
       setIsPushPromptOpen(found);
     };
-    const interval = setInterval(checkPushPrompt, 500);
-    const observer = new MutationObserver(checkPushPrompt);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => { clearInterval(interval); observer.disconnect(); };
+    checkPushPrompt();
+    const timer = setTimeout(checkPushPrompt, 1000);
+    return () => clearTimeout(timer);
   }, [isAllowedPage, isSignedIn]);
 
-  // Show after 15 seconds or 40% scroll
+  // Show after 15 seconds or when scrolled 40% into page (via IntersectionObserver sentinel)
   useEffect(() => {
     if (!isAllowedPage || !isLoaded || isSignedIn) return;
     if (sessionStorage.getItem('login_incentive_dismissed') === 'true') return;
@@ -76,19 +75,34 @@ export default function LoginIncentivePopup() {
       if (shown || isPushPromptOpen) return;
       shown = true;
       setIsOpen(true);
-      window.removeEventListener('scroll', handleScroll);
       clearTimeout(timer);
     };
 
-    const handleScroll = () => {
-      const scrolled = window.scrollY;
-      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (totalHeight > 0 && scrolled / totalHeight >= 0.4) showPopup();
-    };
-
     timer = setTimeout(showPopup, 15000);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => { window.removeEventListener('scroll', handleScroll); clearTimeout(timer); };
+
+    // Create a virtual sentinel element at 40% height of page or use IntersectionObserver on page container
+    let observer: IntersectionObserver | null = null;
+    const targetEl = document.getElementById('hero-scene') || document.querySelector('main') || document.body;
+
+    if (typeof IntersectionObserver !== 'undefined' && targetEl) {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            // Trigger when top section scrolls 40% out of view
+            if (!entry.isIntersecting || entry.intersectionRatio < 0.6) {
+              showPopup();
+            }
+          });
+        },
+        { threshold: [0, 0.6] }
+      );
+      observer.observe(targetEl);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      if (observer) observer.disconnect();
+    };
   }, [isAllowedPage, isLoaded, isSignedIn, isPushPromptOpen]);
 
   // Escape key dismiss

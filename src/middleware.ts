@@ -161,7 +161,8 @@ export default clerkMiddleware(async (auth, request) => {
       'admin@drftn.in',
       'nagarjundp256@gmail.com',
       'drftnclothing@gmail.com',
-      'chethansc47@gmail.com'
+      'chethansc47@gmail.com',
+      'nnvg2608@gmail.com'
     ];
 
     const envAllowlist = (process.env.ADMIN_ALLOWLIST_EMAILS || '')

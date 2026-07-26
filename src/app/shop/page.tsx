@@ -172,20 +172,65 @@ function ShopProductCard({
               imageWidth={800}
               layoutId={`product-image-${prod.slug}`}
               overlayLeft={
-                isOutOfStock ? (
-                  <span className="text-[10px] font-mono font-medium tracking-[0.12em] text-[--drftn-white]/50 uppercase">
-                    GONE
-                  </span>
-                ) : prod.compare_price && prod.compare_price > prod.price ? (
-                  <span className="text-[10px] font-mono font-medium tracking-[0.16em] text-[--drftn-white]/85 uppercase">
-                    SALE
-                  </span>
-                ) : null
+                (() => {
+                  const totalStock = prod.sizes.reduce((acc, s) => acc + (prod.stock_quantity[s] || 0), 0);
+                  if (totalStock === 0) {
+                    return (
+                      <div className="p-0.5 rounded-sm bg-black/60 backdrop-blur-sm">
+                        <span className="bg-zinc-950/90 text-zinc-400 border border-zinc-700/60 backdrop-blur-md px-2.5 py-0.5 rounded-sm text-[9px] font-mono font-bold tracking-[0.18em] uppercase shadow-md">
+                          GONE
+                        </span>
+                      </div>
+                    );
+                  }
+                  if (totalStock > 0 && totalStock <= 8) {
+                    return (
+                      <div className="p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
+                        <span className="inline-flex items-center gap-1.5 bg-rose-950/90 text-rose-300 border border-rose-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.16em] uppercase shadow-md">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                          LOW STOCK · {totalStock} LEFT
+                        </span>
+                      </div>
+                    );
+                  }
+                  const isBestseller = Boolean(
+                    (prod as any).is_bestseller ||
+                    (prod as any).is_bestseller_hero ||
+                    prod.slug === 'striped-knit-polo'
+                  );
+                  if (isBestseller) {
+                    return (
+                      <div className="p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
+                        <span className="inline-flex items-center gap-1.5 bg-amber-950/90 text-amber-300 border border-amber-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.18em] uppercase shadow-md">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                          BESTSELLER
+                        </span>
+                      </div>
+                    );
+                  }
+                  const isNew = Boolean(
+                    (prod as any).is_new ||
+                    (prod as any).is_new_drop ||
+                    prod.slug === 'knitted-drop-polo' ||
+                    prod.slug === 'washed-plaid-overshirt'
+                  );
+                  if (isNew) {
+                    return (
+                      <div className="p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
+                        <span className="inline-flex items-center gap-1.5 bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.18em] uppercase shadow-md">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          NEW DROP
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()
               }
               overlayRight={
                 imageCount > 1 && (
-                  <div className="bg-[--drftn-black]/70 px-2 py-0.5 border border-[--drftn-gray-700]/50 rounded-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-280">
-                    <span className="text-[9px] font-mono text-[--drftn-gray-500] tracking-wider">
+                  <div className="bg-black/80 px-2 py-0.5 border border-white/20 rounded-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-280">
+                    <span className="text-[9px] font-mono text-white/80 tracking-wider">
                       {String(activeIdx + 1).padStart(2, '0')} / {String(imageCount).padStart(2, '0')}
                     </span>
                   </div>
@@ -208,24 +253,26 @@ function ShopProductCard({
             </div>
 
             {/* Subtle bottom dark gradient */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none z-[11]" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none z-[11]" />
 
-            {/* Corner-Anchored Quick Add */}
+            {/* Corner-Anchored Quick Add Button with Scale-Bounce & Flash */}
             {!isOutOfStock && (
               <div className="absolute bottom-3 right-3 z-20">
                 <button
+                  type="button"
                   onClick={handleQuickAddClick}
                   disabled={isAdding}
-                  className={`w-8 h-8 rounded-none flex items-center justify-center transition-all duration-200 active:scale-90 border ${isAdding
-                      ? 'bg-[--drftn-white] text-[--drftn-black] border-[--drftn-white]'
-                      : 'bg-[--drftn-black]/60 hover:bg-[--drftn-black]/80 text-[--drftn-white] border-[--drftn-gray-700]'
-                    }`}
+                  className={`w-9 h-9 rounded-sm flex items-center justify-center transition-all duration-300 active:scale-85 border shadow-xl ${
+                    isAdding
+                      ? 'bg-emerald-400 text-black border-emerald-300 scale-110 shadow-[0_0_20px_rgba(52,211,153,0.8)] animate-scale-bounce'
+                      : 'bg-black/80 hover:bg-white hover:text-black text-white border-white/30 backdrop-blur-md hover:scale-105'
+                  }`}
                   aria-label={`Quick add ${prod.name} to cart`}
                 >
                   {isAdding ? (
-                    <span className="text-[10px] font-mono">✓</span>
+                    <span className="text-sm font-mono font-black text-black">✓</span>
                   ) : (
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90" />
                   )}
                 </button>
               </div>
@@ -233,23 +280,25 @@ function ShopProductCard({
           </div>
 
           {/* Product Details (Unified Rhythm) */}
-          <div className="pt-3 pb-6 flex flex-col text-left space-y-1">
-            <p className="text-[9px] text-brand-stone uppercase tracking-[0.2em] font-semibold">
+          <div className="pt-3 pb-4 flex flex-col text-left space-y-1">
+            <p className="text-[9px] font-mono text-zinc-500 uppercase tracking-[0.2em] font-medium">
               {prod.category}
             </p>
-            <h3 className="text-xs font-display text-[--drftn-white] tracking-[0.08em] uppercase line-clamp-1">
+            {/* Muted light weight title */}
+            <h3 className="text-xs font-medium text-white/70 tracking-wide uppercase line-clamp-1 group-hover:text-white transition-colors">
               {prod.name}
             </h3>
-            <div className="flex items-baseline gap-2 h-5 text-xs font-mono">
-              <span className="text-[--drftn-white] font-medium">
+            {/* Dominant visual anchor price */}
+            <div className="flex items-baseline gap-2 font-mono pt-0.5">
+              <span className="text-base md:text-lg font-black text-white tracking-tight drop-shadow-sm">
                 ₹{(prod.price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
               </span>
               {prod.compare_price && prod.compare_price > prod.price && (
                 <>
-                  <span className="text-[10px] text-[--drftn-gray-500] line-through font-normal">
+                  <span className="text-xs text-zinc-500 line-through font-normal">
                     ₹{(prod.compare_price / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
                   </span>
-                  <span className="text-[10px] text-[--drftn-gray-500] font-normal tracking-wide">
+                  <span className="text-[10px] text-emerald-400 font-bold tracking-wide">
                     -{Math.round(((prod.compare_price - prod.price) / prod.compare_price) * 100)}%
                   </span>
                 </>
@@ -330,19 +379,39 @@ function ShopContent() {
 
   // Scroll Position Listener for Sticky/Shrink Header + Directional show/hide matching Navbar
   useEffect(() => {
-    const handleScroll = () => {
-      const y = window.scrollY;
-      setIsSticky(y > 120);
+    let rafId: number | null = null;
+    let isStickyState = false;
+    let hideHeaderState = false;
 
-      if (y > lastScrollY.current && y > 80) {
-        setHideHeader(true);
-      } else {
-        setHideHeader(false);
-      }
-      lastScrollY.current = y;
+    const handleScroll = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const y = window.scrollY;
+        const nextSticky = y > 120;
+        let nextHide = false;
+
+        if (y > lastScrollY.current && y > 80) {
+          nextHide = true;
+        }
+
+        lastScrollY.current = y;
+
+        if (nextSticky !== isStickyState) {
+          isStickyState = nextSticky;
+          setIsSticky(nextSticky);
+        }
+        if (nextHide !== hideHeaderState) {
+          hideHeaderState = nextHide;
+          setHideHeader(nextHide);
+        }
+      });
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   // Synchronize from URL — unchanged

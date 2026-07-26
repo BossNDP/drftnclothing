@@ -41,16 +41,24 @@ export default function Navbar() {
 
   useEffect(() => {
     setMounted(true);
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
+    const sentinel = document.getElementById('nav-scroll-sentinel');
+    if (sentinel && typeof IntersectionObserver !== 'undefined') {
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          setIsScrolled(!entry.isIntersecting);
+        },
+        { threshold: 0 }
+      );
+      observer.observe(sentinel);
+      return () => observer.disconnect();
+    } else {
+      const handleScroll = () => {
+        setIsScrolled(window.scrollY > 50);
+      };
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      handleScroll();
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
   }, []);
 
   // Lock scroll when mobile menu is open
@@ -78,6 +86,7 @@ export default function Navbar() {
 
   return (
     <>
+      <div id="nav-scroll-sentinel" className="absolute top-0 left-0 w-full h-[50px] pointer-events-none z-[-1]" aria-hidden="true" />
       {/* ── Announcement Bar ── */}
       <AnnouncementTicker />
 
@@ -167,7 +176,7 @@ export default function Navbar() {
 
             {/* Desktop Auth */}
             <div className="hidden lg:flex items-center pl-2">
-              {isLoaded && !isSignedIn && (
+              {mounted && isLoaded && !isSignedIn && (
                 <button
                   onClick={() => openAuthModal()}
                   className="text-[9px] font-bold tracking-[0.2em] uppercase text-brand-silver hover:text-white transition-colors duration-200 cursor-pointer"
@@ -176,7 +185,7 @@ export default function Navbar() {
                   Sign In
                 </button>
               )}
-              {isLoaded && isSignedIn && (
+              {mounted && isLoaded && isSignedIn && (
                 <div className="relative group z-50">
                   <button
                     className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold hover:border-white transition-colors cursor-pointer"
@@ -273,7 +282,7 @@ export default function Navbar() {
 
               {/* Auth Control */}
               <div className="relative">
-                {isLoaded && !isSignedIn && (
+                {mounted && isLoaded && !isSignedIn && (
                   <button
                     onClick={() => openAuthModal()}
                     className="px-3.5 py-1.5 rounded-full border border-white/20 bg-transparent text-[11px] font-mono tracking-widest text-white uppercase transition-colors hover:border-white/50 active:bg-white/10 cursor-pointer"
@@ -283,15 +292,15 @@ export default function Navbar() {
                   </button>
                 )}
 
-                {isLoaded && isSignedIn && (
+                {mounted && isLoaded && isSignedIn && (
                   <button
                     onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
                     className="relative flex items-center justify-center rounded-full p-0.5 cursor-pointer"
                     aria-label="Open Account Dropdown"
                   >
-                    <div className="w-8 h-8 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-xs font-mono font-bold">
+                    <span className="w-8 h-8 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-xs font-mono font-bold">
                       {user?.name?.charAt(0).toUpperCase() || 'U'}
-                    </div>
+                    </span>
                   </button>
                 )}
 
@@ -410,7 +419,7 @@ export default function Navbar() {
           {/* Bottom section of Drawer */}
           <div className="border-t border-brand-graphite/40 pt-6 flex items-center justify-between">
             <div>
-              {isLoaded && !isSignedIn && (
+              {mounted && isLoaded && !isSignedIn && (
                 <button
                   onClick={() => { setMobileMenuOpen(false); openAuthModal(); }}
                   className="text-xs font-bold uppercase tracking-widest text-brand-silver hover:text-white cursor-pointer"
@@ -418,7 +427,7 @@ export default function Navbar() {
                   Sign In / Register
                 </button>
               )}
-              {isLoaded && isSignedIn && (
+              {mounted && isLoaded && isSignedIn && (
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}

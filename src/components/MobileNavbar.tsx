@@ -114,39 +114,52 @@ export default function MobileNavbar() {
   // Smart Scroll Auto-Hide Detection (Lenis + Native Scroll Synced)
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
+  const isVisibleRef = useRef(true);
+  const rafId = useRef<number | null>(null);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
     const processScroll = (currentY: number, direction?: number) => {
-      if (currentY < 60 || isOpen) {
-        setIsVisible(true);
+      if (rafId.current !== null) return;
+
+      rafId.current = requestAnimationFrame(() => {
+        rafId.current = null;
+        let shouldBeVisible = isVisibleRef.current;
+
+        if (currentY < 60 || isOpen) {
+          shouldBeVisible = true;
+        } else if (direction !== undefined) {
+          if (direction > 0) {
+            shouldBeVisible = false;
+          } else if (direction < 0) {
+            shouldBeVisible = true;
+          }
+        } else {
+          const diff = currentY - lastScrollY.current;
+          if (diff > 8) {
+            shouldBeVisible = false;
+          } else if (diff < -8) {
+            shouldBeVisible = true;
+          }
+        }
+
         lastScrollY.current = currentY;
-        return;
-      }
 
-      if (direction !== undefined) {
-        if (direction > 0) {
-          setIsVisible(false); // Scroll down -> Hide bar
-        } else if (direction < 0) {
-          setIsVisible(true); // Scroll up -> Reveal bar
+        if (shouldBeVisible !== isVisibleRef.current) {
+          isVisibleRef.current = shouldBeVisible;
+          setIsVisible(shouldBeVisible);
         }
-      } else {
-        const diff = currentY - lastScrollY.current;
-        if (diff > 5) {
-          setIsVisible(false);
-        } else if (diff < -5) {
-          setIsVisible(true);
-        }
-      }
 
-      lastScrollY.current = currentY;
-
-      // Reveal on scroll pause (600ms)
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        setIsVisible(true);
-      }, 600);
+        // Reveal on scroll pause (600ms)
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          if (!isVisibleRef.current) {
+            isVisibleRef.current = true;
+            setIsVisible(true);
+          }
+        }, 600);
+      });
     };
 
     const handleNativeScroll = () => {
@@ -166,6 +179,7 @@ export default function MobileNavbar() {
     return () => {
       window.removeEventListener('scroll', handleNativeScroll);
       window.removeEventListener('drftn-scroll', handleCustomScroll);
+      if (rafId.current !== null) cancelAnimationFrame(rafId.current);
       clearTimeout(timeoutId);
     };
   }, [isOpen]);

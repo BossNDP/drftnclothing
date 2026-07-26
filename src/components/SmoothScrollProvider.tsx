@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Lenis from 'lenis';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -10,34 +11,32 @@ interface SmoothScrollProviderProps {
 }
 
 export default function SmoothScrollProvider({ children }: SmoothScrollProviderProps) {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     gsap.registerPlugin(ScrollTrigger);
 
-    // Initialize Lenis smooth scroll engine tuned for mobile lerp and touch inertia
+    // Detect if primary pointer is coarse (mobile touch)
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+
+    // Initialize Lenis smooth scroll engine with autoRaf so RAF sleeps when idle
     const lenis = new Lenis({
-      duration: 1.2,
+      autoRaf: true,
+      duration: 1.0,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: 'vertical',
       gestureOrientation: 'vertical',
       smoothWheel: true,
-      syncTouch: true,
-      syncTouchLerp: 0.1,
-      touchInertiaExponent: 1.7,
-      touchMultiplier: 1.2,
+      syncTouch: false,
+      touchMultiplier: 1.0,
       wheelMultiplier: 1.0,
       infinite: false,
     });
 
-    // Synchronize Lenis scroll updates with GSAP ScrollTrigger and dynamically smooth fast touch flicks
+    // Synchronize Lenis scroll updates with GSAP ScrollTrigger only when scroll moves
     lenis.on('scroll', (e) => {
-      // Dynamic lerp dampening for velocity spikes on fast touch flicks
-      if (Math.abs(e.velocity) > 2.5) {
-        lenis.options.syncTouchLerp = 0.06;
-      } else {
-        lenis.options.syncTouchLerp = 0.1;
-      }
       ScrollTrigger.update();
       window.dispatchEvent(
         new CustomEvent('drftn-scroll', {
@@ -45,14 +44,6 @@ export default function SmoothScrollProvider({ children }: SmoothScrollProviderP
         })
       );
     });
-
-    // Drive Lenis RAF loop via GSAP ticker for frame-perfect sync
-    const updateTicker = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-
-    gsap.ticker.add(updateTicker);
-    gsap.ticker.lagSmoothing(0);
 
     // Smooth scroll for anchor links (#collections, #hero-scene, etc.)
     const handleAnchorClick = (e: MouseEvent) => {
@@ -62,7 +53,7 @@ export default function SmoothScrollProvider({ children }: SmoothScrollProviderP
         const targetEl = document.querySelector(anchor.hash);
         if (targetEl) {
           e.preventDefault();
-          lenis.scrollTo(targetEl as HTMLElement, { offset: 0, duration: 1.2 });
+          lenis.scrollTo(targetEl as HTMLElement, { offset: 0, duration: 1.0 });
         }
       }
     };
@@ -70,10 +61,21 @@ export default function SmoothScrollProvider({ children }: SmoothScrollProviderP
 
     return () => {
       document.removeEventListener('click', handleAnchorClick);
-      gsap.ticker.remove(updateTicker);
       lenis.destroy();
     };
   }, []);
 
+  // Clean up & refresh ScrollTrigger instances on Next.js page route changes to prevent progressive lag
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Small timeout to allow DOM to render new page components before refresh
+      const timer = setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname]);
+
   return <>{children}</>;
 }
+
