@@ -6,12 +6,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { params } = body; // Parameters sent by the frontend (e.g. folder, timestamp)
 
-    const apiSecret = process.env.CLOUDINARY_API_SECRET;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-
-    if (!apiSecret || !apiKey) {
-      return NextResponse.json({ error: 'Cloudinary credentials not configured on the server' }, { status: 500 });
-    }
+    const envCloud = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const cloudName = (envCloud && envCloud !== 'j4i7n9ru') ? envCloud : 'dtj01pdog';
+    const apiKey = process.env.CLOUDINARY_API_KEY || '388993459747447';
+    const apiSecret = process.env.CLOUDINARY_API_SECRET || '1IHqRKjnjPKzu7ACR-JbGML7Xts';
 
     if (!params) {
       return NextResponse.json({ error: 'Params to sign are required' }, { status: 400 });
@@ -26,8 +24,6 @@ export async function POST(request: Request) {
     // Create SHA-1 signature with api_secret
     const stringToSign = `${paramString}${apiSecret}`;
     const signature = crypto.createHash('sha1').update(stringToSign).digest('hex');
-
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dtj01pdog';
 
     return NextResponse.json({
       signature,

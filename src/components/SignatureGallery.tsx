@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NextImage from 'next/image';
-import { getOptimizedImageUrl, getBlurPlaceholderUrl } from '@/lib/cloudinary';
+import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface SignatureGalleryProps {
@@ -38,7 +38,6 @@ function PremiumImage({
 }) {
   const [loaded, setLoaded] = useState(false);
   const optimizedUrl = getOptimizedImageUrl(src, imageWidth);
-  const blurUrl = getBlurPlaceholderUrl(src);
 
   return (
     <div
@@ -46,25 +45,11 @@ function PremiumImage({
       className="absolute inset-0 w-full h-full"
       style={{
         opacity: isActive ? 1 : 0,
-        transition: 'opacity 0.4s cubic-bezier(0.16,1,0.3,1)',
-        willChange: isActive ? 'opacity' : 'auto',
+        transition: 'opacity 0.25s ease-out',
+        willChange: 'opacity',
         pointerEvents: isActive ? 'auto' : 'none',
       }}
     >
-      {blurUrl && (
-        <img
-          src={blurUrl}
-          alt=""
-          aria-hidden
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-          style={{
-            filter: 'blur(12px)',
-            transform: 'scale(1.05)',
-            opacity: loaded ? 0 : 1,
-            transition: 'opacity 0.4s ease',
-          }}
-        />
-      )}
       <NextImage
         src={optimizedUrl}
         alt={alt}
@@ -75,7 +60,7 @@ function PremiumImage({
         className="object-cover select-none pointer-events-none"
         style={{
           opacity: loaded ? 1 : 0,
-          transition: 'opacity 0.45s cubic-bezier(0.16,1,0.3,1)',
+          transition: 'opacity 0.2s ease-out',
         }}
       />
     </div>
@@ -91,18 +76,17 @@ export default function SignatureGallery({
   overlayLeft,
   overlayRight,
   onClick,
-  layoutId,
   imageWidth = 1200,
   autoSlideInterval = 0,
 }: SignatureGalleryProps) {
-  const [localIndex, setLocalIndex] = useState(activeIndex);
+  const [localIndex, setLocalIndex] = useState(activeIndex || 0);
   const dragStartX = useRef(0);
   const isDragging = useRef(false);
   const pausedUntilRef = useRef<number>(0);
 
-  // Sync prop index with local index
+  // Sync prop index with local index when controlled by parent
   useEffect(() => {
-    if (activeIndex !== localIndex) {
+    if (activeIndex !== undefined && activeIndex !== localIndex) {
       setLocalIndex(activeIndex);
     }
   }, [activeIndex]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -110,15 +94,8 @@ export default function SignatureGallery({
   const goTo = useCallback((next: number) => {
     if (next < 0 || next >= images.length) return;
     setLocalIndex(next);
-  }, [images.length]);
-
-  const lastReportedIndex = useRef(activeIndex);
-  useEffect(() => {
-    if (localIndex !== lastReportedIndex.current) {
-      lastReportedIndex.current = localIndex;
-      onChangeIndex?.(localIndex);
-    }
-  }, [localIndex, onChangeIndex]);
+    onChangeIndex?.(next);
+  }, [images.length, onChangeIndex]);
 
   // Pause auto-sliding on touch / interaction for 7 seconds
   const pauseAutoSlide = useCallback(() => {
@@ -132,11 +109,13 @@ export default function SignatureGallery({
     const timer = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
       if (Date.now() < pausedUntilRef.current) return;
-      setLocalIndex((prev) => (prev + 1) % images.length);
+      const nextIdx = (localIndex + 1) % images.length;
+      setLocalIndex(nextIdx);
+      onChangeIndex?.(nextIdx);
     }, autoSlideInterval);
 
     return () => clearInterval(timer);
-  }, [images.length, autoSlideInterval, onChangeIndex]);
+  }, [images.length, autoSlideInterval, localIndex, onChangeIndex]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     pauseAutoSlide();
@@ -154,13 +133,17 @@ export default function SignatureGallery({
   };
 
   const handleMouseEnter = () => {
-    if (images.length > 1) {
+    // Only perform default hover image toggle if parent is not controlling activeIndex via onChangeIndex
+    if (!onChangeIndex && images.length > 1) {
       setLocalIndex(1);
     }
   };
 
   const handleMouseLeave = () => {
-    setLocalIndex(0);
+    // Only perform default hover image toggle if parent is not controlling activeIndex via onChangeIndex
+    if (!onChangeIndex) {
+      setLocalIndex(0);
+    }
   };
 
   if (images.length === 0) {
