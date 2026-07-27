@@ -356,22 +356,26 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
               {/* Mobile Viewport Outfit Photo */}
               <div className="relative w-full h-full md:hidden">
                 <Image
-                  src="/mobilewhite.png"
+                  src="/mobilewhite-mobile.webp"
                   alt="DRFTN Full-Body Outfit — White Edition"
                   fill
                   priority
-                  sizes="100vw"
+                  fetchPriority="high"
+                  sizes="(max-width: 767px) 100vw, 750px"
+                  quality={80}
                   className="object-cover object-[75%_20%] filter contrast-[1.02]"
                 />
               </div>
               {/* Desktop Viewport Original Hoodie Graphic */}
               <div className="relative w-full h-full hidden md:flex items-center justify-center p-8 md:p-16">
                 <Image
-                  src="/hero/hoodie-light.png"
+                  src="/hero/hoodie-light.webp"
                   alt="DRFTN Stitch Hoodie — White Edition"
                   fill
                   priority
-                  sizes="100vw"
+                  fetchPriority="high"
+                  sizes="(min-width: 768px) 100vw, 1200px"
+                  quality={80}
                   className="object-contain filter drop-shadow-[0_24px_60px_rgba(0,0,0,0.9)] max-w-4xl mx-auto"
                 />
               </div>
@@ -391,22 +395,22 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
               {/* Mobile Viewport Outfit Photo */}
               <div className="relative w-full h-full md:hidden">
                 <Image
-                  src="/mobileblack.png"
+                  src="/mobileblack-mobile.webp"
                   alt="DRFTN Full-Body Outfit — Black Edition"
                   fill
-                  priority
-                  sizes="100vw"
+                  sizes="(max-width: 767px) 100vw, 750px"
+                  quality={80}
                   className="object-cover object-[75%_20%] filter contrast-[1.02]"
                 />
               </div>
               {/* Desktop Viewport Original Hoodie Graphic */}
               <div className="relative w-full h-full hidden md:flex items-center justify-center p-8 md:p-16">
                 <Image
-                  src="/hero/hoodie-dark.png"
+                  src="/hero/hoodie-dark.webp"
                   alt="DRFTN Stitch Hoodie — Black Edition"
                   fill
-                  priority
-                  sizes="100vw"
+                  sizes="(min-width: 768px) 100vw, 1200px"
+                  quality={80}
                   className="object-contain filter drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] max-w-4xl mx-auto"
                 />
               </div>

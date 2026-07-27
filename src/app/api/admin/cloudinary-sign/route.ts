@@ -27,9 +27,12 @@ export async function POST(request: Request) {
     const stringToSign = `${paramString}${apiSecret}`;
     const signature = crypto.createHash('sha1').update(stringToSign).digest('hex');
 
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dtj01pdog';
+
     return NextResponse.json({
       signature,
       apiKey,
+      cloudName,
       timestamp: params.timestamp,
     });
 

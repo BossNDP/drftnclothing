@@ -185,6 +185,9 @@ export default function RootLayout({
               `
             }}
           />
+          {/* LCP Image High-Priority Speculative Preload */}
+          <link rel="preload" href="/mobilewhite-mobile.webp" as="image" type="image/webp" fetchPriority="high" media="(max-width: 767px)" />
+          <link rel="preload" href="/hero/hoodie-light.webp" as="image" type="image/webp" fetchPriority="high" media="(min-width: 768px)" />
         </head>
         <body suppressHydrationWarning className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
           <SmoothScrollProvider>

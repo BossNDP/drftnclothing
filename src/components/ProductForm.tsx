@@ -273,13 +273,6 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     setIsUploading(true);
     setUploadingFiles(validFiles.map(f => ({ name: f.name, progress: 0 })));
 
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    if (!cloudName) {
-      addToast('Cloudinary is not configured.', 'error');
-      setIsUploading(false);
-      return;
-    }
-
     const uploadedUrls: string[] = [];
 
     for (let i = 0; i < validFiles.length; i++) {
@@ -296,6 +289,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
 
         if (!signRes.ok) throw new Error('Failed to get signature');
         const signData = await signRes.json();
+        const activeCloudName = signData.cloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dtj01pdog';
 
         // Perform XHR request to track real-time upload progress percentage
         const url = await new Promise<string>((resolve, reject) => {
@@ -321,22 +315,27 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
               const res = JSON.parse(xhr.responseText);
               resolve(res.secure_url);
             } else {
-              reject(new Error('Cloudinary response error'));
+              let errMsg = `Upload failed (${xhr.status})`;
+              try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.error?.message) errMsg = res.error.message;
+              } catch {}
+              reject(new Error(errMsg));
             }
           });
 
           xhr.addEventListener('error', () => reject(new Error('Network error')));
           xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
 
-          xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`);
+          xhr.open('POST', `https://api.cloudinary.com/v1_1/${activeCloudName}/image/upload`);
           xhr.send(formData);
         });
 
         const optimizedUrl = url.replace('/upload/', '/upload/f_auto,q_auto/');
         uploadedUrls.push(optimizedUrl);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        addToast(`Failed to upload "${file.name}"`, 'error');
+        addToast(`Failed to upload "${file.name}": ${err?.message || err}`, 'error');
       }
     }
 

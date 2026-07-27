@@ -25,7 +25,6 @@ export default function MiniCart() {
 
   const [promoInput, setPromoInput] = useState('');
   const drawerRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const subtotal = getCartTotal();
 
@@ -110,31 +109,6 @@ export default function MiniCart() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setIsOpen]);
 
-  useEffect(() => {
-    if (isOpen) {
-      timerRef.current = setTimeout(() => {
-        setIsOpen(false);
-      }, 2500);
-    } else {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, [isOpen, setIsOpen]);
-
-  const handleInteraction = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  };
-
   const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
 
   // Do not render MiniCart on admin pages
@@ -154,8 +128,6 @@ export default function MiniCart() {
       {/* Cart Drawer */}
       <aside
         ref={drawerRef}
-        onMouseEnter={handleInteraction}
-        onTouchStart={handleInteraction}
         className={`fixed top-0 right-0 h-full w-full sm:w-[460px] bg-[#0d0d0d] border-l border-white/10 text-white z-[4500] shadow-[0_0_80px_rgba(0,0,0,0.9)] flex flex-col transition-transform duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}

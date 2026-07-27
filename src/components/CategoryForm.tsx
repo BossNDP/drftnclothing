@@ -85,12 +85,6 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
     if (!files || files.length === 0) return;
 
     setIsUploading(true);
-    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-    if (!cloudName) {
-      addToast('Cloudinary is not configured.', 'error');
-      setIsUploading(false);
-      return;
-    }
 
     const file = files[0];
     const timestamp = Math.round(new Date().getTime() / 1000);
@@ -105,6 +99,7 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
 
       if (!signRes.ok) throw new Error('Failed to fetch signature');
       const signData = await signRes.json();
+      const activeCloudName = signData.cloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'dtj01pdog';
 
       const formData = new FormData();
       formData.append('file', file);
@@ -113,21 +108,24 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
       formData.append('signature', signData.signature);
       formData.append('folder', folder);
 
-      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+      const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${activeCloudName}/image/upload`, {
         method: 'POST',
         body: formData,
       });
 
-      if (!uploadRes.ok) throw new Error('Cloudinary response error');
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errData.error?.message || `Cloudinary upload error (${uploadRes.status})`);
+      }
 
       const uploadData = await uploadRes.json();
       // Apply Cloudinary transformations for format and quality optimizations
       const optimizedUrl = uploadData.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
       setImageUrl(optimizedUrl);
       addToast('Image uploaded successfully', 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      addToast('Failed to upload image', 'error');
+      addToast(`Failed to upload image: ${err?.message || err}`, 'error');
     } finally {
       setIsUploading(false);
     }
