@@ -17,6 +17,7 @@ export default function AdminProducts() {
   const [bulkWeightInput, setBulkWeightInput] = useState('');
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isUpdatingBulk, setIsUpdatingBulk] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const handleBulkWeightUpdate = async () => {
     if (!bulkWeightInput || isNaN(Number(bulkWeightInput))) {
@@ -86,24 +87,32 @@ export default function AdminProducts() {
   }, []);
 
   const toggleProductActive = async (product: Product) => {
+    if (actionLoadingId) return;
+    setActionLoadingId(product.id);
     try {
       await db.updateProduct(product.id, { is_active: !product.is_active });
       addToast(`${product.name} is now ${!product.is_active ? 'Active' : 'Draft'}`, 'success');
-      fetchProducts();
+      await fetchProducts();
     } catch (error) {
       addToast('Failed to update product', 'error');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const handleDelete = async (id: string, name: string) => {
+    if (actionLoadingId) return;
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
+    setActionLoadingId(id);
     try {
       await db.deleteProduct(id);
       addToast(`Product "${name}" deleted successfully`, 'success');
-      fetchProducts();
+      await fetchProducts();
     } catch (error) {
       console.error(error);
       addToast('Failed to delete product', 'error');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 

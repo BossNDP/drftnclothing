@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { ArrowDown } from 'lucide-react';
 import { gsap } from 'gsap';
@@ -12,641 +12,532 @@ interface HeroHoodieSceneProps {
   products?: Product[];
 }
 
-interface Milestone {
-  label: string;
-  contrastMode: 'light' | 'dark';
-  bgHex: string;
-}
-
-const MILESTONES: Milestone[] = [
-  {
-    label: 'RAW SILHOUETTE',
-    contrastMode: 'dark',
-    bgHex: '#000000',
-  },
-  {
-    label: 'ON-GRID STEALTH',
-    contrastMode: 'dark',
-    bgHex: '#060606',
-  },
-  {
-    label: 'ACID WASH STUDIO',
-    contrastMode: 'dark',
-    bgHex: '#0A0A0A',
-  },
-  {
-    label: 'BUILT DIFFERENT',
-    contrastMode: 'dark',
-    bgHex: '#000000',
-  },
-];
-
-const DEFAULT_MARQUEE_IMAGES = [
-  'https://ik.imagekit.io/nu87ftsgv/WhatsApp_Image_2026-07-16_at_8.39.44_PM-removebg-preview.png',
-  'https://ik.imagekit.io/nu87ftsgv/WhatsApp_Image_2026-07-16_at_8.33.17_PM-removebg-preview.png',
-  'https://ik.imagekit.io/nu87ftsgv/WhatsApp_Image_2026-07-16_at_8.38.40_PM-removebg-preview.png',
-  'https://ik.imagekit.io/nu87ftsgv/WhatsApp_Image_2026-07-16_at_8.32.58_PM-removebg-preview.png',
-];
-
 export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const heroWrapperRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef<HTMLDivElement>(null);
-  const hoodieStageRef = useRef<HTMLDivElement>(null);
+  const heroWrapperRef = useRef<HTMLDivElement>(null);
+  const heroImageWrapperRef = useRef<HTMLDivElement>(null);
   const hoodieLightRef = useRef<HTMLDivElement>(null);
   const hoodieDarkRef = useRef<HTMLDivElement>(null);
-  const bgDiscRef = useRef<HTMLDivElement>(null);
-  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
-  const textFillRef = useRef<HTMLDivElement>(null);
-  const driftInFillRef = useRef<HTMLDivElement>(null);
+  const lightSweepRef = useRef<HTMLDivElement>(null);
+  
+  const textBlockRef = useRef<HTMLDivElement>(null);
+  const subheadingRef = useRef<HTMLDivElement>(null);
   const headlineBlockRef = useRef<HTMLDivElement>(null);
-  const marqueeColsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const headlineLine1Ref = useRef<HTMLHeadingElement>(null);
+  const headlineLine2Ref = useRef<HTMLHeadingElement>(null);
+  const ctaContainerRef = useRef<HTMLDivElement>(null);
+  const primaryCtaRef = useRef<HTMLDivElement>(null);
+  const secondaryCtaRef = useRef<HTMLDivElement>(null);
+  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
+  
+  const dot1Ref = useRef<HTMLDivElement>(null);
+  const dot2Ref = useRef<HTMLDivElement>(null);
 
-  const currentBucketRef = useRef<number>(0);
-  const particle1Ref = useRef<HTMLDivElement>(null);
-  const particle2Ref = useRef<HTMLDivElement>(null);
-  const particle3Ref = useRef<HTMLDivElement>(null);
-  const [isLowEndDevice, setIsLowEndDevice] = useState<boolean>(false);
-
-  const marqueeCols = React.useMemo(() => {
-    const cols: string[][] = [[], [], [], []];
-    for (let colIdx = 0; colIdx < 4; colIdx++) {
-      for (let imgIdx = 0; imgIdx < 3; imgIdx++) {
-        const itemIdx = (colIdx * 2 + imgIdx) % DEFAULT_MARQUEE_IMAGES.length;
-        cols[colIdx].push(DEFAULT_MARQUEE_IMAGES[itemIdx]);
-      }
-    }
-    return cols;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const concurrency = navigator.hardwareConcurrency || 4;
-      const navConn = (navigator as unknown as { connection?: { effectiveType?: string } }).connection;
-      const effectiveType = navConn?.effectiveType || '4g';
-      if (concurrency <= 4 || effectiveType === '2g' || effectiveType === '3g') {
-        setIsLowEndDevice(true);
-      }
-    }
-  }, []);
+  // Performance guards (eliminate continuous per-frame DOM re-assignments)
+  const isBlackRef = useRef<boolean | null>(null);
+  const textClampStateRef = useRef<'visible' | 'hidden' | 'fading' | null>(null);
+  const cueClampStateRef = useRef<'visible' | 'hidden' | 'fading' | null>(null);
+  const lastLightPRef = useRef<number>(-1);
+  const lastCropPRef = useRef<number>(-1);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    // Configure GSAP & ScrollTrigger settings
     gsap.registerPlugin(ScrollTrigger);
-    ScrollTrigger.config({ ignoreMobileResize: true });
+    gsap.ticker.lagSmoothing(500, 33);
+    
+    try {
+      ScrollTrigger.normalizeScroll(true);
+    } catch (e) {
+      console.warn('ScrollTrigger normalizeScroll notice:', e);
+    }
 
     const containerEl = containerRef.current;
     const pinnedEl = pinnedRef.current;
-    const hoodieLightEl = hoodieLightRef.current;
     const hoodieDarkEl = hoodieDarkRef.current;
-    const bgDiscEl = bgDiscRef.current;
-    const scrollIndEl = scrollIndicatorRef.current;
-    const textFillEl = textFillRef.current;
-    const driftInFillEl = driftInFillRef.current;
-    const headlineBlockEl = headlineBlockRef.current;
 
-    if (!containerEl || !pinnedEl || !hoodieLightEl || !hoodieDarkEl) return;
+    if (!containerEl || !pinnedEl) return;
 
-    let cachedScale = 4.5;
-
-    const recalcScale = () => {
-      const stageEl = hoodieStageRef.current || containerEl;
-      if (!stageEl || !hoodieDarkEl) return;
-      const stageRect = stageEl.getBoundingClientRect();
-      if (stageRect.width === 0 || stageRect.height === 0) return;
-
-      const originX = stageRect.width * 0.6;
-      const originY = stageRect.height * 0.45;
-      const corners: [number, number][] = [
-        [0, 0],
-        [stageRect.width, 0],
-        [0, stageRect.height],
-        [stageRect.width, stageRect.height],
-      ];
-      const maxDist = Math.max(
-        ...corners.map(([x, y]) => Math.sqrt((x - originX) ** 2 + (y - originY) ** 2))
-      );
-
-      const maskW = hoodieDarkEl.offsetWidth || stageRect.width;
-      const maskH = hoodieDarkEl.offsetHeight || stageRect.height;
-      const maskRadius = Math.min(maskW, maskH) / 2;
-
-      cachedScale = Math.max(3.5, (maxDist / (maskRadius || 1)) * 1.2);
-    };
-
-    recalcScale();
-    window.addEventListener('resize', recalcScale);
-
-    const mm = gsap.matchMedia();
-
-    // DOM-only contrast bucket update without React re-renders during scroll
-    const updateContrastBucket = (progress: number) => {
-      let bucket = 0;
-      if (progress > 0.75) bucket = 3;
-      else if (progress > 0.5) bucket = 2;
-      else if (progress > 0.25) bucket = 1;
-
-      if (bucket !== currentBucketRef.current) {
-        currentBucketRef.current = bucket;
-
-        if (heroWrapperRef.current) {
-          const milestone = MILESTONES[bucket] || MILESTONES[0];
-          heroWrapperRef.current.setAttribute('data-contrast-mode', milestone.contrastMode);
-          heroWrapperRef.current.style.setProperty('--hero-contrast-bg', milestone.bgHex);
-        }
-        if (bgDiscEl) {
-          bgDiscEl.style.background = bucket === 2 ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.22)';
-        }
-      }
-    };
-
-    // DESKTOP TIMELINE (≥768px) - Single Consolidated Timeline
-    mm.add('(min-width: 768px)', () => {
-      gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
-      gsap.set(hoodieDarkEl, {
-        opacity: 1,
-        scale: 1,
-        yPercent: 0,
-        clipPath: 'circle(0% at 50% 50%)',
-        webkitClipPath: 'circle(0% at 50% 50%)',
+    const ctx = gsap.context(() => {
+      // 1. Load-in Entrance Sequence (Plain GSAP timeline, no scrub)
+      const entranceTl = gsap.timeline({
+        defaults: { ease: 'power3.out' },
       });
-      if (driftInFillEl) {
-        gsap.set(driftInFillEl, {
-          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-        });
-      }
-      if (textFillEl) {
-        gsap.set(textFillEl, {
-          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-        });
+
+      // Ken Burns Image Settle: scale(1.22) -> scale(1.18) over 1.2s (Initial Crop Framing)
+      if (heroImageWrapperRef.current) {
+        entranceTl.fromTo(
+          heroImageWrapperRef.current,
+          { scale: 1.22 },
+          { scale: 1.18, duration: 1.2, ease: 'power2.out' },
+          0
+        );
       }
 
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerEl,
-          start: 'top top',
-          end: 'bottom bottom',
-          pin: pinnedEl,
-          scrub: 1.0,
-          fastScrollEnd: true,
-          onEnter: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              willChange: 'transform, opacity, clip-path',
-            });
-          },
-          onEnterBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              willChange: 'transform, opacity, clip-path',
-            });
-          },
-          onLeave: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              clearProps: 'willChange',
-            });
-          },
-          onLeaveBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl].filter(Boolean), {
-              clearProps: 'willChange',
-            });
-          },
-          onUpdate: (self) => {
-            updateContrastBucket(self.progress);
-            if (scrollIndEl) {
-              const op = Math.max(0, 1 - self.progress * 5);
-              scrollIndEl.style.opacity = op.toString();
+      // Subheading Label Fade
+      if (subheadingRef.current) {
+        entranceTl.fromTo(
+          subheadingRef.current,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          0.3
+        );
+      }
+
+      // Headline Text Mask Reveal
+      if (headlineBlockRef.current) {
+        entranceTl.fromTo(
+          headlineBlockRef.current,
+          { opacity: 0, y: 15 },
+          { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' },
+          0.4
+        );
+      }
+
+      // Headline Line 1 & Line 2 Clipped Mask Reveal (translateY 100% -> 0%)
+      const lines = [headlineLine1Ref.current, headlineLine2Ref.current].filter(Boolean);
+      if (lines.length > 0) {
+        entranceTl.fromTo(
+          lines,
+          { y: '100%' },
+          { y: '0%', duration: 0.7, stagger: 0.08, ease: 'power3.out' },
+          0.45
+        );
+      }
+
+      // CTAs Fade + translateY(20px -> 0)
+      if (ctaContainerRef.current) {
+        const ctaBtns = ctaContainerRef.current.children;
+        entranceTl.fromTo(
+          ctaBtns,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.5, stagger: 0.1, ease: 'power2.out' },
+          0.65
+        );
+      }
+
+      // Scroll Cue Indicator Fade In
+      if (scrollIndicatorRef.current) {
+        entranceTl.fromTo(
+          scrollIndicatorRef.current,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 0.5 },
+          0.85
+        );
+      }
+
+      // 2. Pinned Master Scroll Scrub Sequence (Optimized: zero React state updates, threshold-guarded DOM mutations)
+      ScrollTrigger.create({
+        trigger: containerEl,
+        start: 'top top',
+        end: 'bottom bottom',
+        pin: pinnedEl,
+        scrub: 1.0,
+        fastScrollEnd: true,
+        preventOverlaps: true,
+        onUpdate: (self) => {
+          const p = self.progress;
+
+          // Hero Crop-and-Reveal (0.0 -> 0.28 scroll progress)
+          if (heroImageWrapperRef.current) {
+            const cropProgress = Math.min(1, p / 0.28);
+            if (Math.abs(cropProgress - lastCropPRef.current) > 0.003) {
+              lastCropPRef.current = cropProgress;
+              const currentScale = 1.18 - (0.18 * cropProgress);
+              gsap.set(heroImageWrapperRef.current, { scale: currentScale });
             }
-          },
-        },
-      });
+          }
 
-      // 1. Direct Scroll-Scrubbed Circle Clip-Path Reveal (un-covering to black hoodie)
-      tl.to(
-        hoodieDarkEl,
-        {
-          clipPath: 'circle(120% at 50% 50%)',
-          webkitClipPath: 'circle(120% at 50% 50%)',
-          duration: 0.6,
-          ease: 'none',
-        },
-        0.0
-      );
+          // Outfit color shift material progress: -20% to 130%
+          if (hoodieDarkEl) {
+            const matProgress = -20 + p * 150;
+            hoodieDarkEl.style.setProperty('--material-progress', `${matProgress}%`);
+          }
 
-      // 2. DRIFT IN Text Fill Overlay
-      if (driftInFillEl) {
-        tl.to(
-          driftInFillEl,
-          {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            duration: 0.4,
-            ease: 'none',
-          },
-          0.0
-        );
-      }
+          // Scroll-Driven Ambient Light Sweep Layer (20%, 20%) -> (80%, 60%)
+          if (lightSweepRef.current && Math.abs(p - lastLightPRef.current) > 0.005) {
+            lastLightPRef.current = p;
+            const lightX = Math.round((20 + p * 60) * 10) / 10;
+            const lightY = Math.round((20 + p * 40) * 10) / 10;
+            lightSweepRef.current.style.background = `radial-gradient(circle at ${lightX}% ${lightY}%, rgba(255,255,255,0.85) 0%, transparent 60%)`;
+          }
 
-      // 3. STYLE. Text Fill Overlay
-      if (textFillEl) {
-        tl.to(
-          textFillEl,
-          {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            duration: 0.45,
-            ease: 'none',
-          },
-          0.25
-        );
-      }
-
-      // 4. Parallax Headline Block
-      if (headlineBlockEl) {
-        tl.to(headlineBlockEl, { yPercent: -10, ease: 'none', duration: 1.0 }, 0.0);
-      }
-
-      // 5. Floating Particle / Depth Elements Parallax
-      if (particle1Ref.current) tl.to(particle1Ref.current, { yPercent: -35, ease: 'none', duration: 1.0 }, 0.0);
-      if (particle2Ref.current) tl.to(particle2Ref.current, { yPercent: 45, ease: 'none', duration: 1.0 }, 0.0);
-      if (particle3Ref.current) tl.to(particle3Ref.current, { yPercent: -25, ease: 'none', duration: 1.0 }, 0.0);
-
-      // 6. Marquee Columns Parallax
-      marqueeColsRef.current.forEach((col, idx) => {
-        if (!col) return;
-        const scrollUp = idx % 2 === 0;
-        tl.to(
-          col,
-          {
-            yPercent: scrollUp ? -20 : 20,
-            ease: 'none',
-            duration: 1.0,
-          },
-          0.0
-        );
-      });
-    });
-
-    // MOBILE TIMELINE (<768px) - Lightweight Unpinned / Short Pin Timeline
-    mm.add('(max-width: 767px)', () => {
-      gsap.set(hoodieLightEl, { opacity: 1, scale: 1, yPercent: 0 });
-      gsap.set(hoodieDarkEl, {
-        opacity: 1,
-        scale: 1,
-        yPercent: 0,
-        clipPath: 'circle(0% at 50% 50%)',
-        webkitClipPath: 'circle(0% at 50% 50%)',
-      });
-      if (driftInFillEl) {
-        gsap.set(driftInFillEl, {
-          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-        });
-      }
-      if (textFillEl) {
-        gsap.set(textFillEl, {
-          clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-          webkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-        });
-      }
-
-      const mobileTl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerEl,
-          start: 'top top',
-          end: '+=100%',
-          scrub: 0.5,
-          fastScrollEnd: true,
-          onEnter: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
-              willChange: 'transform, opacity, clip-path',
-            });
-          },
-          onEnterBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
-              willChange: 'transform, opacity, clip-path',
-            });
-          },
-          onLeave: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
-              clearProps: 'willChange',
-            });
-          },
-          onLeaveBack: () => {
-            gsap.set([hoodieLightEl, hoodieDarkEl, driftInFillEl, textFillEl, headlineBlockEl, particle1Ref.current, particle2Ref.current].filter(Boolean), {
-              clearProps: 'willChange',
-            });
-          },
-          onUpdate: (self) => {
-            updateContrastBucket(self.progress);
-            if (scrollIndEl) {
-              const op = Math.max(0, 1 - self.progress * 3);
-              scrollIndEl.style.opacity = op.toString();
+          // Progress Indicator Dots Highlight (Guarded: runs ONLY when crossing 0.45 threshold)
+          const isBlack = p > 0.45;
+          if (isBlackRef.current !== isBlack) {
+            isBlackRef.current = isBlack;
+            if (dot1Ref.current && dot2Ref.current) {
+              if (isBlack) {
+                dot1Ref.current.className = 'w-1.5 h-2 rounded-full bg-white/30 transition-all duration-300';
+                dot2Ref.current.className = 'w-1.5 h-6 rounded-full bg-white transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.8)]';
+              } else {
+                dot1Ref.current.className = 'w-1.5 h-6 rounded-full bg-white transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.8)]';
+                dot2Ref.current.className = 'w-1.5 h-2 rounded-full bg-white/30 transition-all duration-300';
+              }
             }
-          },
+          }
+
+          // Text block scrub: HARD CLAMP text fade out to 0 between 15% and 40% scroll distance (Guarded)
+          if (textBlockRef.current) {
+            const startFade = 0.15;
+            const endFade = 0.40;
+            if (p <= startFade) {
+              if (textClampStateRef.current !== 'visible') {
+                textClampStateRef.current = 'visible';
+                gsap.set(textBlockRef.current, {
+                  opacity: 1,
+                  y: 0,
+                  visibility: 'visible',
+                  pointerEvents: 'auto',
+                });
+              }
+            } else if (p >= endFade) {
+              if (textClampStateRef.current !== 'hidden') {
+                textClampStateRef.current = 'hidden';
+                gsap.set(textBlockRef.current, {
+                  opacity: 0,
+                  y: -20,
+                  visibility: 'hidden',
+                  pointerEvents: 'none',
+                });
+              }
+            } else {
+              textClampStateRef.current = 'fading';
+              const textProgress = (p - startFade) / (endFade - startFade);
+              const currentOpacity = Math.max(0, 1 - textProgress);
+              gsap.set(textBlockRef.current, {
+                opacity: currentOpacity,
+                y: -20 * textProgress,
+                visibility: currentOpacity <= 0.01 ? 'hidden' : 'visible',
+                pointerEvents: currentOpacity < 0.1 ? 'none' : 'auto',
+              });
+            }
+          }
+
+          // Scroll cue indicator scrub: fade out early (0 -> 12% scroll distance) (Guarded)
+          if (scrollIndicatorRef.current) {
+            if (p <= 0) {
+              if (cueClampStateRef.current !== 'visible') {
+                cueClampStateRef.current = 'visible';
+                gsap.set(scrollIndicatorRef.current, {
+                  opacity: 1,
+                  visibility: 'visible',
+                  pointerEvents: 'auto',
+                });
+              }
+            } else if (p >= 0.12) {
+              if (cueClampStateRef.current !== 'hidden') {
+                cueClampStateRef.current = 'hidden';
+                gsap.set(scrollIndicatorRef.current, {
+                  opacity: 0,
+                  visibility: 'hidden',
+                  pointerEvents: 'none',
+                });
+              }
+            } else {
+              cueClampStateRef.current = 'fading';
+              const cueProgress = p / 0.12;
+              const cueOpacity = Math.max(0, 1 - cueProgress);
+              gsap.set(scrollIndicatorRef.current, {
+                opacity: cueOpacity,
+                visibility: cueOpacity <= 0.01 ? 'hidden' : 'visible',
+                pointerEvents: cueOpacity < 0.1 ? 'none' : 'auto',
+              });
+            }
+          }
         },
       });
 
-      // Direct Scroll-Scrubbed Circle Clip-Path Reveal on Mobile
-      mobileTl.to(
-        hoodieDarkEl,
-        {
-          clipPath: 'circle(120% at 50% 50%)',
-          webkitClipPath: 'circle(120% at 50% 50%)',
-          duration: 0.6,
-          ease: 'none',
-        },
-        0.0
-      );
+      // 3. Desktop Cursor-Reactive Hero Model Parallax
+      if (window.innerWidth >= 768 && heroImageWrapperRef.current) {
+        const xTo = gsap.quickTo(heroImageWrapperRef.current, 'x', { duration: 0.8, ease: 'power2.out' });
+        const yTo = gsap.quickTo(heroImageWrapperRef.current, 'y', { duration: 0.8, ease: 'power2.out' });
 
-      if (driftInFillEl) {
-        mobileTl.to(
-          driftInFillEl,
-          {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            duration: 0.4,
-            ease: 'none',
-          },
-          0.0
-        );
+        const handleParallax = (e: MouseEvent) => {
+          const { innerWidth, innerHeight } = window;
+          const xOffset = (e.clientX - innerWidth / 2) * -0.012;
+          const yOffset = (e.clientY - innerHeight / 2) * -0.012;
+          xTo(xOffset);
+          yTo(yOffset);
+        };
+
+        window.addEventListener('mousemove', handleParallax, { passive: true });
       }
 
-      if (textFillEl) {
-        mobileTl.to(
-          textFillEl,
-          {
-            clipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
-            webkitClipPath: 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)',
+      // 4. Mobile Gyroscope Tilt Parallax (clamped hard)
+      if (window.innerWidth < 768 && 'DeviceOrientationEvent' in window) {
+        const handleTilt = (e: DeviceOrientationEvent) => {
+          if (e.gamma === null || e.beta === null) return;
+          const tiltX = Math.max(-12, Math.min(12, e.gamma)) * 0.25;
+          const tiltY = Math.max(-12, Math.min(12, e.beta - 45)) * 0.25;
+          if (heroImageWrapperRef.current) {
+            gsap.set(heroImageWrapperRef.current, { x: tiltX, y: tiltY });
+          }
+        };
+
+        window.addEventListener('deviceorientation', handleTilt, { passive: true });
+      }
+
+      // 5. Magnetic Hover Effect on CTAs
+      const attachMagnetic = (btnEl: HTMLElement | null) => {
+        if (!btnEl) return;
+        const handleMouseMove = (e: MouseEvent) => {
+          const rect = btnEl.getBoundingClientRect();
+          const centerX = rect.left + rect.width / 2;
+          const centerY = rect.top + rect.height / 2;
+          const deltaX = (e.clientX - centerX) * 0.18;
+          const deltaY = (e.clientY - centerY) * 0.18;
+          gsap.to(btnEl, {
+            x: deltaX,
+            y: deltaY,
+            scale: 1.02,
+            duration: 0.3,
+            ease: 'power2.out',
+          });
+        };
+        const handleMouseLeave = () => {
+          gsap.to(btnEl, {
+            x: 0,
+            y: 0,
+            scale: 1,
             duration: 0.5,
-            ease: 'none',
-          },
-          0.1
-        );
-      }
+            ease: 'power2.out',
+          });
+        };
 
-      if (headlineBlockEl) {
-        mobileTl.to(
-          headlineBlockEl,
-          {
-            yPercent: -4,
-            duration: 0.6,
-            ease: 'none',
-          },
-          0.0
-        );
-      }
+        btnEl.addEventListener('mousemove', handleMouseMove);
+        btnEl.addEventListener('mouseleave', handleMouseLeave);
 
-      if (particle1Ref.current) mobileTl.to(particle1Ref.current, { yPercent: -20, ease: 'none', duration: 1.0 }, 0.0);
-      if (particle2Ref.current) mobileTl.to(particle2Ref.current, { yPercent: 25, ease: 'none', duration: 1.0 }, 0.0);
-    });
+        return () => {
+          btnEl.removeEventListener('mousemove', handleMouseMove);
+          btnEl.removeEventListener('mouseleave', handleMouseLeave);
+        };
+      };
 
-    return () => {
-      window.removeEventListener('resize', recalcScale);
-      mm.revert();
-    };
-  }, [isLowEndDevice]);
+      const cleanPrimary = attachMagnetic(primaryCtaRef.current);
+      const cleanSecondary = attachMagnetic(secondaryCtaRef.current);
+
+      return () => {
+        if (cleanPrimary) cleanPrimary();
+        if (cleanSecondary) cleanSecondary();
+      };
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-black select-none h-[120vh] md:h-[150vh]"
       id="hero-scene"
+      className="relative w-full bg-black select-none h-[160vh]"
     >
       <div
         ref={pinnedRef}
-        className="sticky top-0 w-full h-screen overflow-hidden bg-black"
+        className="sticky top-0 w-full h-[100dvh] overflow-hidden bg-black"
       >
-        {/* Main contrast wrapper container — Atmospheric Spotlight Background */}
         <div
           ref={heroWrapperRef}
-          data-contrast-mode="dark"
-          className="hero-contrast-wrapper relative w-full h-full flex flex-col justify-between items-center px-4 sm:px-8 md:px-12 pt-12 pb-6 sm:pb-8 md:py-8 transition-colors duration-300 overflow-hidden bg-black"
+          className="relative w-full h-full overflow-hidden bg-black"
         >
-          {/* ── ATMOSPHERIC STUDIO SPOTLIGHT BACKGROUND (NO PITCH BLACK VOID) (z-0) ── */}
-          <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-            {/* Multi-radial gradient ambient spotlight */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_35%,rgba(255,255,255,0.16)_0%,rgba(35,35,45,0.55)_45%,rgba(0,0,0,1)_92%)]" />
+          {/* Full-Bleed Model Image Viewport (Initial Crop-and-Reveal scale: 1.18 -> 1.0 on scroll) */}
+          <div
+            ref={heroImageWrapperRef}
+            className="absolute inset-0 w-full h-full overflow-hidden transform-gpu"
+            style={{ transformOrigin: '75% 20%' }}
+          >
+            {/* White Base Outfit Layer */}
             <div
-              ref={bgDiscRef}
-              className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[320px] sm:w-[500px] md:w-[700px] h-[320px] sm:h-[500px] md:h-[700px] rounded-full bg-white/15 blur-[120px] pointer-events-none"
-            />
-
-            {/* Architectural noise texture */}
-            <Image
-              src="/bg.png"
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover object-center opacity-35 mix-blend-overlay"
-            />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/85" />
-          </div>
-
-          {/* ── Desktop Background Product Marquee Grid (Desktop only, z-[1]) ── */}
-          <div className="absolute inset-0 z-[1] hidden md:grid grid-cols-4 gap-8 px-16 overflow-hidden opacity-25 select-none pointer-events-none">
-            {marqueeCols.map((colImages, colIdx) => (
-              <div
-                key={colIdx}
-                ref={(el) => {
-                  marqueeColsRef.current[colIdx] = el;
-                }}
-                className="flex flex-col gap-8 transition-transform duration-700"
-              >
-                {colImages.map((src, i) => (
-                  <div key={i} className="relative w-full aspect-[3/4] rounded-lg overflow-hidden border border-white/10">
-                    <Image src={src} alt="" fill sizes="25vw" className="object-cover filter grayscale contrast-125" />
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          {/* ── CENTRAL HOODIE HERO VIEWPORT ZONE (z-10) ── */}
-          <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center pointer-events-none py-2">
-            {/* Ambient Backlight Glow Disc */}
-            <div
-              className="absolute w-[340px] sm:w-[460px] md:w-[600px] h-[340px] sm:h-[460px] md:h-[600px] rounded-full blur-[110px] opacity-35 transition-colors duration-500 bg-white/20"
-            />
-
-            {/* Dominant Hoodie Visual Container — Hoodie Stage */}
-            <div
-              ref={hoodieStageRef}
-              className="hoodie-stage relative w-[88vw] sm:w-[84vw] md:w-[520px] lg:w-[580px] max-w-[460px] md:max-w-none h-[46vh] sm:h-[50vh] md:h-full flex items-center justify-center"
+              ref={hoodieLightRef}
+              className="absolute inset-0 w-full h-full"
             >
-              {/* Parallax Depth Particle Accent 1: Top Left Torn Spec Badge */}
-              <div
-                ref={particle1Ref}
-                className="absolute top-2 left-2 sm:left-4 z-20 pointer-events-none transform-gpu"
-              >
-                <span className="text-[9px] font-mono tracking-[0.2em] text-white/50 bg-black/75 px-2 py-0.5 uppercase border border-white/15 backdrop-blur-xs rounded-sm">
-                  SPEC // 380GSM
-                </span>
-              </div>
-
-              {/* Parallax Depth Particle Accent 2: Top Right Industrial Accent Line */}
-              <div
-                ref={particle2Ref}
-                className="absolute top-4 right-2 sm:right-6 z-20 pointer-events-none transform-gpu flex flex-col items-end space-y-1"
-              >
-                <div className="w-10 h-[1px] bg-white/30" />
-                <span className="text-[8px] font-mono text-white/40 tracking-widest uppercase">
-                  D2C CUT
-                </span>
-              </div>
-
-              {/* Parallax Depth Particle Accent 3: Bottom Right Floating Pill */}
-              <div
-                ref={particle3Ref}
-                className="absolute bottom-10 right-4 hidden sm:block z-20 pointer-events-none transform-gpu"
-              >
-                <div className="w-3 h-3 rounded-full border border-white/40 flex items-center justify-center">
-                  <div className="w-1 h-1 rounded-full bg-white/70 animate-ping" />
-                </div>
-              </div>
-
-              {/* Hoodie Base: Light / Cream Edition (ALWAYS opacity: 1) */}
-              <div
-                ref={hoodieLightRef}
-                className="hoodie-base absolute inset-0 w-full h-full flex items-center justify-center"
-                style={{ contain: 'layout paint style' }}
-              >
+              {/* Mobile Viewport Outfit Photo */}
+              <div className="relative w-full h-full md:hidden">
                 <Image
-                  src="/hero/hoodie-light-mobile.png"
-                  alt="DRFTN Stitch Hoodie - Light Edition"
+                  src="/mobilewhite.png"
+                  alt="DRFTN Full-Body Outfit — White Edition"
                   fill
                   priority
-                  sizes="(max-width: 768px) 88vw, 580px"
-                  className="object-contain filter drop-shadow-[0_12px_32px_rgba(0,0,0,0.5)]"
+                  sizes="100vw"
+                  className="object-cover object-[75%_20%] filter contrast-[1.02]"
                 />
               </div>
-
-              {/* Hoodie Reveal Mask: Direct 1:1 Scroll Scrubbed Circle Reveal */}
-              <div
-                ref={hoodieDarkRef}
-                className="hoodie-reveal-mask absolute inset-0 w-full h-full flex items-center justify-center bg-transparent pointer-events-none"
-                style={{
-                  clipPath: 'circle(0% at 50% 50%)',
-                  WebkitClipPath: 'circle(0% at 50% 50%)',
-                  willChange: 'clip-path',
-                  contain: 'layout paint style',
-                }}
-              >
+              {/* Desktop Viewport Original Hoodie Graphic */}
+              <div className="relative w-full h-full hidden md:flex items-center justify-center p-8 md:p-16">
                 <Image
-                  src="/hero/hoodie-dark-mobile.png"
-                  alt="DRFTN Stitch Hoodie - Dark Edition"
+                  src="/hero/hoodie-light.png"
+                  alt="DRFTN Stitch Hoodie — White Edition"
                   fill
                   priority
-                  sizes="(max-width: 768px) 88vw, 580px"
-                  className="hoodie-reveal object-contain filter drop-shadow-[0_12px_32px_rgba(0,0,0,0.5)]"
-                  style={{ contain: 'layout paint style' }}
+                  sizes="100vw"
+                  className="object-contain filter drop-shadow-[0_24px_60px_rgba(0,0,0,0.9)] max-w-4xl mx-auto"
                 />
               </div>
             </div>
+
+            {/* Black Outfit Layer with Soft Mask Wipe */}
+            <div
+              ref={hoodieDarkRef}
+              className="absolute inset-0 w-full h-full bg-transparent pointer-events-none z-10"
+              style={{
+                WebkitMaskImage:
+                  'linear-gradient(180deg, #000 0%, #000 var(--material-progress, -20%), transparent calc(var(--material-progress, -20%) + 25%), transparent 100%)',
+                maskImage:
+                  'linear-gradient(180deg, #000 0%, #000 var(--material-progress, -20%), transparent calc(var(--material-progress, -20%) + 25%), transparent 100%)',
+              }}
+            >
+              {/* Mobile Viewport Outfit Photo */}
+              <div className="relative w-full h-full md:hidden">
+                <Image
+                  src="/mobileblack.png"
+                  alt="DRFTN Full-Body Outfit — Black Edition"
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-cover object-[75%_20%] filter contrast-[1.02]"
+                />
+              </div>
+              {/* Desktop Viewport Original Hoodie Graphic */}
+              <div className="relative w-full h-full hidden md:flex items-center justify-center p-8 md:p-16">
+                <Image
+                  src="/hero/hoodie-dark.png"
+                  alt="DRFTN Stitch Hoodie — Black Edition"
+                  fill
+                  priority
+                  sizes="100vw"
+                  className="object-contain filter drop-shadow-[0_24px_60px_rgba(0,0,0,0.95)] max-w-4xl mx-auto"
+                />
+              </div>
+            </div>
+
+            {/* Scroll-Driven Ambient Light Sweep Glint Overlay (z-14) */}
+            <div
+              ref={lightSweepRef}
+              className="absolute inset-0 pointer-events-none z-14 opacity-[0.11] mix-blend-overlay transition-transform duration-75"
+              style={{
+                background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.85) 0%, transparent 60%)',
+              }}
+              aria-hidden="true"
+            />
+
+            {/* Stronger Radial Studio Vignette (rgba(0,0,0,0.55) edges) */}
+            <div
+              className="absolute inset-0 pointer-events-none z-12 bg-[radial-gradient(circle_at_70%_35%,transparent_35%,rgba(0,0,0,0.55)_100%)]"
+              aria-hidden="true"
+            />
+
+            {/* Natural Scrim Gradient Overlays for Pure Editorial Text Contrast */}
+            <div
+              className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none z-15"
+              aria-hidden="true"
+            />
+            <div
+              className="absolute inset-x-0 bottom-0 h-[55%] md:h-[45%] bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none z-15"
+              aria-hidden="true"
+            />
           </div>
 
-          {/* ── HERO COPY, OVERSIZED HEADLINE & CTA BUTTONS (z-20) ── */}
-          <div className="relative z-20 w-full max-w-screen-2xl mx-auto flex flex-col md:flex-row items-stretch md:items-end justify-between gap-3 md:gap-6">
-            {/* Copy & Headline Block */}
-            <div ref={headlineBlockRef} className="max-w-2xl text-left space-y-1 sm:space-y-2">
-              {/* ── OVERSIZED EDITORIAL HEADLINE: "DRIFT IN" + "STYLE." (Sequential Clip Path Fill) ── */}
-              <div className="flex flex-col space-y-0.5 text-left select-none">
-                {/* Line 1: DRIFT IN (Hollow stroke underlay + Solid white fill overlay scrubbed on scroll) */}
-                <div className="relative inline-block overflow-hidden py-0.5">
-                  <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-stroke-hollow leading-tight block">
-                    DRIFT <span className="italic font-serif font-normal text-stroke-hollow">IN</span>
-                  </h1>
+          {/* Colorway Sequence Progress Dots (Shifted Right to `right-2 sm:right-3 md:right-4`, z-35) */}
+          <div
+            className="absolute right-2 sm:right-3 md:right-4 bottom-24 md:bottom-28 z-35 flex flex-col items-center gap-2 pointer-events-none"
+            aria-hidden="true"
+          >
+            <div ref={dot1Ref} className="w-1.5 h-6 rounded-full bg-white transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+            <div ref={dot2Ref} className="w-1.5 h-2 rounded-full bg-white/30 transition-all duration-300" />
+          </div>
 
-                  <div
-                    ref={driftInFillRef}
-                    className="absolute inset-0 pointer-events-none z-10 py-0.5"
-                    style={{
-                      clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-                      WebkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-                    }}
-                  >
-                    <h1 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-tight text-white drop-shadow-[0_8px_20px_rgba(0,0,0,0.85)] leading-tight block">
-                      DRIFT <span className="italic font-serif font-normal text-white/90">IN</span>
-                    </h1>
-                  </div>
-                </div>
+          {/* Hero Copy, Headlines & CTAs (Positioned Bottom-Left Overlay, z-30) */}
+          <div
+            ref={textBlockRef}
+            className="absolute z-30 left-6 right-6 md:left-[7vw] md:right-auto bottom-[calc(80px+env(safe-area-inset-bottom))] md:bottom-[10vh] md:max-w-xl flex flex-col items-start text-left space-y-3 md:space-y-4 pointer-events-auto"
+          >
+            {/* Subheading Label with Explicit Margin Clearance (mb-3 md:mb-5) */}
+            <div ref={subheadingRef} className="flex flex-col items-start space-y-1 mb-3 md:mb-5 opacity-0 w-full">
+              <span className="text-[11px] md:text-[13px] font-mono font-bold tracking-[0.15em] uppercase text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                HEAVYWEIGHT D2C STREETWEAR • BORN IN YELAHANKA
+              </span>
+            </div>
 
-                {/* Sleek monochrome accent divider line */}
-                <div className="w-12 sm:w-20 h-[1px] bg-white/25 my-0.5" />
+            {/* Oversized Headline with Soft Feathered Dark Radial Vignette Pool (NO box, NO straight lines, NO corners) */}
+            <div
+              ref={headlineBlockRef}
+              className="headline-wrap relative flex flex-col space-y-0 text-left select-none opacity-0"
+            >
+              {/* Soft radial dark pool extending beyond text bounds, fading out 100% to transparent before any edge */}
+              <div
+                className="absolute -inset-x-8 -inset-y-6 bg-[radial-gradient(ellipse_70%_70%_at_center,rgba(0,0,0,0.55)_0%,rgba(0,0,0,0.25)_45%,rgba(0,0,0,0)_75%)] pointer-events-none z-[-1]"
+                aria-hidden="true"
+              />
 
-                {/* Line 2: STYLE. (1.4x larger scale disparity + sequential scroll fill overlay) */}
-                <div className="relative inline-block overflow-hidden py-0.5">
-                  <span className="text-5xl sm:text-7xl md:text-9xl font-display font-black uppercase tracking-tight text-stroke-hollow leading-none block">
-                    STYLE.
-                  </span>
-
-                  <div
-                    ref={textFillRef}
-                    className="absolute inset-0 pointer-events-none z-10 py-0.5"
-                    style={{
-                      clipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-                      WebkitClipPath: 'polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%)',
-                    }}
-                  >
-                    <span className="text-5xl sm:text-7xl md:text-9xl font-display font-black uppercase tracking-tight text-white drop-shadow-[0_12px_30px_rgba(0,0,0,0.95)] leading-none block">
-                      STYLE.
-                    </span>
-                  </div>
-                </div>
+              {/* Line 1: DRIFT IN */}
+              <div className="overflow-hidden">
+                <h1
+                  ref={headlineLine1Ref}
+                  className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black uppercase tracking-tight text-white leading-[0.95] drop-shadow-[0_12px_30px_rgba(0,0,0,0.95)]"
+                >
+                  DRIFT <span className="italic font-serif font-normal text-white/90">IN</span>
+                </h1>
               </div>
 
-              <p className="text-[11px] sm:text-xs md:text-sm font-body font-medium tracking-wide uppercase max-w-md opacity-85 leading-relaxed hero-dynamic-text pt-0.5">
-                HEAVYWEIGHT D2C STREETWEAR • BORN IN YELAHANKA
-              </p>
+              {/* Line 2: STYLE. */}
+              <div className="overflow-hidden">
+                <h1
+                  ref={headlineLine2Ref}
+                  className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-display font-black uppercase tracking-tight text-white leading-[0.9] drop-shadow-[0_14px_35px_rgba(0,0,0,0.98)]"
+                >
+                  STYLE.
+                </h1>
+              </div>
+            </div>
 
-              {/* Sitewide Premium DRFTN CTA Buttons */}
-              <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-                <DRFTNButton href="/shop" variant="primary" fullWidth className="sm:w-auto">
-                  SHOP COLLECTION
+            {/* Intentionally Paired Responsive CTA Buttons */}
+            <div
+              ref={ctaContainerRef}
+              className="pt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:gap-4 w-full sm:w-auto max-w-full"
+            >
+              <div ref={primaryCtaRef} className="hero-cta-btn w-full sm:w-auto flex-1 min-w-0">
+                <DRFTNButton
+                  href="/shop"
+                  variant="primary"
+                >
+                  SHOP NEW DROP
                 </DRFTNButton>
+              </div>
 
-                <DRFTNButton href="#collections" variant="secondary" fullWidth className="sm:w-auto" icon={null}>
+              <div ref={secondaryCtaRef} className="hero-cta-btn w-full sm:w-auto flex-1 min-w-0">
+                <DRFTNButton
+                  href="/shop?category=sweatshirts"
+                  variant="secondary"
+                >
                   EXPLORE DROPS
                 </DRFTNButton>
               </div>
             </div>
-
-            {/* ── ROTATING CIRCULAR SCROLL BADGE (z-20) ── */}
-            <div
-              ref={scrollIndicatorRef}
-              className="flex flex-col items-center md:items-end gap-1.5 hero-dynamic-text transition-opacity duration-300 pointer-events-auto self-center md:self-end pt-2 md:pt-0"
-            >
-              <a
-                href="#collections"
-                className="relative flex items-center justify-center group"
-                aria-label="Scroll to explore collection"
-              >
-                <svg
-                  viewBox="0 0 100 100"
-                  className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 animate-spin-slow pointer-events-none"
-                >
-                  <path
-                    id="circlePath"
-                    d="M 50, 50 m -37, 0 a 37,37 0 1,1 74,0 a 37,37 0 1,1 -74,0"
-                    fill="none"
-                  />
-                  <text className="text-[7.2px] font-mono font-bold uppercase tracking-[0.22em] fill-current">
-                    <textPath href="#circlePath" startOffset="0%">
-                      DRFTN CLOTHING • SCROLL TO EXPLORE •
-                    </textPath>
-                  </text>
-                </svg>
-
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-7 h-7 rounded-full border border-current flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                    <ArrowDown className="w-3.5 h-3.5 animate-bounce" />
-                  </div>
-                </div>
-              </a>
-            </div>
           </div>
+
+          {/* Scroll Cue Indicator */}
+          <div
+            ref={scrollIndicatorRef}
+            className="absolute z-30 bottom-3 md:bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-0 pointer-events-auto"
+          >
+            <a
+              href="#collections"
+              className="flex flex-col items-center gap-1 text-[9px] font-mono font-bold tracking-[0.2em] uppercase text-white/70 hover:text-white transition-colors animate-pulse"
+              aria-label="Scroll to explore"
+            >
+              <span>SCROLL</span>
+              <ArrowDown className="w-3.5 h-3.5 stroke-[2]" />
+            </a>
+          </div>
+
+          {/* Section Transition Texture Seam */}
+          <div
+            className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-b from-transparent via-black/80 to-black pointer-events-none z-40"
+            aria-hidden="true"
+          />
+
         </div>
       </div>
     </div>

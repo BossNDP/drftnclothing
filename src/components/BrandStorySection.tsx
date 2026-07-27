@@ -67,10 +67,23 @@ export default function BrandStorySection() {
       }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else if (sectionEl && typeof IntersectionObserver !== 'undefined') {
+        const rect = sectionEl.getBoundingClientRect();
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+          startTimer();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     if (typeof IntersectionObserver !== 'undefined' && sectionEl) {
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
+          if (entry.isIntersecting && !document.hidden) {
             startTimer();
           } else {
             stopTimer();
@@ -82,6 +95,7 @@ export default function BrandStorySection() {
       return () => {
         stopTimer();
         observer.disconnect();
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     } else {
       startTimer();

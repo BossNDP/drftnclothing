@@ -23,28 +23,32 @@ export default function DRFTNButton({
   variant = 'primary',
   fullWidth = false,
   className = '',
-  icon = <ArrowRight className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" />,
+  icon = (
+    <ArrowRight className="w-4 h-4 transition-transform duration-300 ease-out group-hover:translate-x-1.5 flex-shrink-0" />
+  ),
   type = 'button',
   disabled = false,
 }: DRFTNButtonProps) {
   const baseClasses = `
-    relative group inline-flex items-center justify-center gap-2.5
-    px-7 py-3.5 rounded-none font-display font-bold text-xs tracking-[0.18em] uppercase
+    relative group inline-flex items-center justify-center gap-2.5 sm:gap-3
+    min-h-[52px] sm:min-h-[56px] px-6 sm:px-8 py-3.5 sm:py-4 rounded-[2px]
+    font-mono font-bold text-[12px] sm:text-[13px] md:text-[14px] tracking-[0.16em] sm:tracking-[0.18em] uppercase
     select-none overflow-hidden transition-all duration-300 ease-out
-    active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none
-    ${fullWidth ? 'w-full' : 'w-auto'}
+    active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none
+    ${fullWidth ? 'w-full' : 'w-full sm:w-auto'}
     ${className}
   `;
 
   const variantClasses = {
     primary: `
-      bg-white text-black border border-white
-      hover:bg-black hover:text-white hover:border-white
-      shadow-[0_4px_20px_rgba(255,255,255,0.15)]
+      bg-[#F5F5F0] text-black border border-[#F5F5F0]
+      shadow-[0_4px_24px_rgba(255,255,255,0.2)]
+      hover:bg-[#EAEAE5] hover:border-[#EAEAE5]
     `,
     secondary: `
-      bg-transparent text-white border border-white/40
-      hover:border-white hover:bg-white hover:text-black
+      bg-transparent text-[#F5F5F0] border-[1.5px] border-[#F5F5F0]/50
+      hover:border-[#F5F5F0] hover:bg-[#F5F5F0]/10
+      shadow-[inset_0_0_0_0px_rgba(255,255,255,0)] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.6)]
     `,
     outline: `
       bg-transparent text-white/80 border border-zinc-800
@@ -56,11 +60,16 @@ export default function DRFTNButton({
 
   const content = (
     <>
-      {/* Sliding hover fill layer */}
-      <span className="absolute inset-0 bg-current opacity-0 group-hover:opacity-10 transition-opacity duration-300 pointer-events-none" />
+      {/* Primary Fill Wipe Layer (scaleX 0 -> 1 left-to-right sweep on hover) */}
+      {variant === 'primary' && (
+        <span
+          className="absolute inset-0 bg-black/10 origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-300 ease-out pointer-events-none"
+          aria-hidden="true"
+        />
+      )}
 
       {/* Button label */}
-      <span className="relative z-10 font-bold">{children}</span>
+      <span className="relative z-10 font-bold whitespace-nowrap">{children}</span>
 
       {/* Icon */}
       {icon && <span className="relative z-10">{icon}</span>}

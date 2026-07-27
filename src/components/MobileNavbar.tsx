@@ -239,7 +239,7 @@ export default function MobileNavbar() {
     <>
       {/* ── BACKGROUND SCRIM OVERLAY — single CSS-transition layer, no separate Framer mount/unmount to prevent flicker ── */}
       <div
-        className="fixed inset-0 z-[2400] md:hidden"
+        className="fixed inset-0 z-[4900] md:hidden"
         style={{
           backgroundColor: 'rgba(0,0,0,0.72)',
           opacity: isOpen ? 1 : 0,
@@ -250,17 +250,16 @@ export default function MobileNavbar() {
         onClick={() => setActivePanel(null)}
       />
 
-      {/* ── FLOATING MORPHING CAPSULE (Always visible on mobile) ── */}
-      <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[2500] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden transition-all duration-300 ease-out translate-y-0 opacity-100">
+      {/* ── FLOATING MORPHING CAPSULE (Always visible, fixed at bottom-4) ── */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[5000] w-full max-w-[480px] px-4 flex justify-center pointer-events-none md:hidden transform-gpu transition-all duration-300 ease-out translate-y-0 opacity-100">
         <motion.div
           layout
-          className={`backdrop-blur-[24px] saturate-[160%] overflow-hidden flex flex-col justify-between pointer-events-auto transition-colors duration-300 ${
-            isOpen
+          className={`backdrop-blur-[24px] saturate-[160%] overflow-hidden flex flex-col justify-between pointer-events-auto transition-colors duration-300 ${isOpen
               ? 'bg-[#121212]/95 w-full h-[60vh] rounded-[28px] p-0'
               : pdpInfo.active
-              ? 'bg-[#1a1a1a]/95 w-[330px] h-[52px] rounded-full p-1.5'
-              : 'bg-[#2a2a2a]/90 w-[260px] h-[52px] rounded-full p-1.5'
-          }`}
+                ? 'bg-[#1a1a1a]/95 w-[330px] h-[44px] rounded-full p-1'
+                : 'bg-[#2a2a2a]/90 w-[250px] h-[44px] rounded-full p-1'
+            }`}
           style={{
             border: '1px solid rgba(255,255,255,0.08)',
             boxShadow: isOpen
@@ -349,8 +348,8 @@ export default function MobileNavbar() {
                                 className="flex items-center text-left"
                               >
                                 <span className={`text-[10px] font-mono mr-3 tracking-normal transition-all duration-200 ${isLinkSelected
-                                    ? 'text-white text-shadow-[0_0_8px_rgba(255,255,255,0.7)] font-bold scale-110'
-                                    : 'text-white/60'
+                                  ? 'text-white text-shadow-[0_0_8px_rgba(255,255,255,0.7)] font-bold scale-110'
+                                  : 'text-white/60'
                                   }`}>
                                   {String(idx + 1).padStart(2, '0')}
                                 </span>
@@ -409,6 +408,40 @@ export default function MobileNavbar() {
                             </span>
                           )}
                         </button>
+                      </motion.div>
+
+                      {/* Featured Editorial Drop Tile inside Takeover Menu */}
+                      <motion.div
+                        variants={{
+                          hidden: { opacity: 0, y: 20 },
+                          show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 140 } },
+                        }}
+                        className="mt-6 pt-4 border-t border-white/10"
+                      >
+                        <Link
+                          href="/shop/knitted-drop-polo"
+                          onClick={() => setActivePanel(null)}
+                          className="group relative block overflow-hidden rounded-xl border border-white/15 bg-zinc-900 p-3 transition-transform active:scale-[0.98]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-14 w-12 flex-shrink-0 overflow-hidden rounded-md bg-black">
+                              <img
+                                src="https://ik.imagekit.io/nu87ftsgv/WhatsApp_Image_2026-07-16_at_8.39.44_PM-removebg-preview.png"
+                                alt="Knitted Drop Polo"
+                                className="h-full w-full object-cover grayscale transition-transform duration-300 group-hover:scale-110 group-hover:grayscale-0"
+                              />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="inline-block w-max rounded-full bg-white/10 px-2 py-0.5 text-[8px] font-mono font-bold tracking-widest text-white uppercase mb-1">
+                                NEW DROP HIGHLIGHT
+                              </span>
+                              <span className="text-xs font-display font-extrabold text-white uppercase tracking-wider">
+                                KNITTED DROP POLO
+                              </span>
+                              <span className="text-[10px] font-mono text-zinc-400">₹3,499 • 380 GSM</span>
+                            </div>
+                          </div>
+                        </Link>
                       </motion.div>
                     </motion.nav>
                   )}
@@ -555,11 +588,10 @@ export default function MobileNavbar() {
                 <>
                   <button
                     onClick={() => handlePillClick('menu')}
-                    className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
-                      activePanel === 'search'
+                    className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${activePanel === 'search'
                         ? 'bg-[#121212]/40 border border-white/[0.14] text-white/80 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
                         : 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
-                    }`}
+                      }`}
                   >
                     {/* Morphing Hamburger Icon */}
                     <svg
@@ -599,16 +631,14 @@ export default function MobileNavbar() {
 
                   <button
                     onClick={() => handlePillClick('search')}
-                    className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${
-                      activePanel === 'search'
+                    className={`flex-1 px-3 py-2.5 rounded-full flex items-center justify-center gap-1.5 text-[10.5px] font-display font-extrabold tracking-[0.18em] uppercase transition-[transform,background-color,color,box-shadow] duration-200 pointer-events-auto active:scale-95 ${activePanel === 'search'
                         ? 'bg-white text-black shadow-[0_4px_16px_rgba(255,255,255,0.25)]'
                         : 'bg-[#121212]/40 border border-white/[0.14] text-zinc-300 hover:text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]'
-                    }`}
+                      }`}
                   >
                     <Search
-                      className={`w-3.5 h-3.5 stroke-[2.2] flex-shrink-0 transition-colors duration-200 ${
-                        activePanel === 'search' ? 'text-black' : 'text-white'
-                      }`}
+                      className={`w-3.5 h-3.5 stroke-[2.2] flex-shrink-0 transition-colors duration-200 ${activePanel === 'search' ? 'text-black' : 'text-white'
+                        }`}
                     />
                     <span>SEARCH</span>
                   </button>

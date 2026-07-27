@@ -50,6 +50,7 @@ const msgVariants = {
 export default function AnnouncementTicker() {
   const [idx, setIdx] = useState(0);
   const [barKey, setBarKey] = useState(0);
+  const [isRunning, setIsRunning] = useState(true);
   const containerRef = React.useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function AnnouncementTicker() {
     const el = containerRef.current;
 
     const start = () => {
+      setIsRunning(true);
       if (!t && !document.hidden) {
         t = setInterval(() => {
           setIdx((p) => (p + 1) % MESSAGES.length);
@@ -66,6 +68,7 @@ export default function AnnouncementTicker() {
     };
 
     const stop = () => {
+      setIsRunning(false);
       if (t) {
         clearInterval(t);
         t = null;
@@ -160,6 +163,7 @@ export default function AnnouncementTicker() {
         <div
           key={barKey}
           className="h-full bg-brand-offwhite/20 origin-left animate-ticker-progress"
+          style={{ animationPlayState: isRunning ? 'running' : 'paused' }}
         />
       </div>
 

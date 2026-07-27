@@ -160,7 +160,7 @@ function ShopProductCard({
             onMouseMove={handleMouseMove}
             onMouseLeave={handlePointerLeave}
             data-cursor="product"
-            className="product-image-hoverable relative overflow-hidden rounded-sm bg-brand-charcoal w-full aspect-[3/4] shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+            className="product-image-hoverable relative overflow-hidden rounded-md bg-brand-charcoal w-full aspect-[3/4] shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
           >
             <SignatureGallery
               images={displayImages}

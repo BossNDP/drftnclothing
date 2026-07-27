@@ -37,7 +37,9 @@ export default function Navbar() {
 
   const isHomepage = pathname === '/';
   const isAdminPage = pathname?.startsWith('/admin');
-  const isCheckoutPage = pathname === '/checkout';
+
+  const [navVisible, setNavVisible] = useState(true);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
     setMounted(true);
@@ -59,6 +61,32 @@ export default function Navbar() {
       handleScroll();
       return () => window.removeEventListener('scroll', handleScroll);
     }
+  }, []);
+
+  // Directional scroll listener for Navbar Auto-Hide (Optimized: zero React re-renders on continuous scroll ticks)
+  const navVisibleRef = useRef(true);
+  useEffect(() => {
+    const handleDirectionalScroll = () => {
+      const currentY = window.scrollY;
+      let nextVisible = navVisibleRef.current;
+
+      if (currentY <= 80) {
+        nextVisible = true;
+      } else if (currentY > lastScrollY.current + 6) {
+        nextVisible = false;
+      } else if (currentY < lastScrollY.current - 6) {
+        nextVisible = true;
+      }
+
+      if (nextVisible !== navVisibleRef.current) {
+        navVisibleRef.current = nextVisible;
+        setNavVisible(nextVisible);
+      }
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener('scroll', handleDirectionalScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleDirectionalScroll);
   }, []);
 
   // Lock scroll when mobile menu is open
@@ -92,7 +120,10 @@ export default function Navbar() {
 
       {/* ── Main Navigation Top Rail ── */}
       <header
-        className={`w-full sticky top-0 z-[2000] transition-all duration-300 hidden md:block ${isScrolled || !isHomepage
+        suppressHydrationWarning
+        className={`w-full sticky top-0 z-[2000] transform transition-transform duration-300 ${
+          navVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+        } hidden md:block ${isScrolled || !isHomepage
           ? 'bg-[#0A0A0A] border-b border-brand-graphite/40 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
           : 'bg-transparent border-b border-transparent'
           }`}
@@ -175,8 +206,10 @@ export default function Navbar() {
             </button>
 
             {/* Desktop Auth */}
-            <div className="hidden lg:flex items-center pl-2">
-              {mounted && isLoaded && !isSignedIn && (
+            <div className="hidden lg:flex items-center pl-2" suppressHydrationWarning>
+              {!mounted || !isLoaded ? (
+                <div className="w-16 h-6 flex items-center justify-end" aria-hidden="true" />
+              ) : !isSignedIn ? (
                 <button
                   onClick={() => openAuthModal()}
                   className="text-[9px] font-bold tracking-[0.2em] uppercase text-brand-silver hover:text-white transition-colors duration-200 cursor-pointer"
@@ -184,8 +217,7 @@ export default function Navbar() {
                 >
                   Sign In
                 </button>
-              )}
-              {mounted && isLoaded && isSignedIn && (
+              ) : (
                 <div className="relative group z-50">
                   <button
                     className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold hover:border-white transition-colors cursor-pointer"
@@ -226,22 +258,25 @@ export default function Navbar() {
           </div>
 
           {/* Scroll Progress Bar / Speedometer Underline indicator */}
-          <motion.div
-            className="absolute bottom-0 left-0 h-[2px] bg-white origin-left w-full"
-            style={{ scaleX }}
-            aria-hidden="true"
-          />
+          {mounted && (
+            <motion.div
+              className="absolute bottom-0 left-0 h-[2px] bg-white origin-left w-full"
+              style={{ scaleX }}
+              aria-hidden="true"
+            />
+          )}
         </nav>
       </header>
 
-      {/* ── Mobile Navigation Top Rail — hidden when cart is open to prevent collision ── */}
-      {!isCartOpen && (
-        <header
-          className={`w-full sticky top-0 z-[2000] transition-all duration-300 md:hidden ${isScrolled
-            ? 'bg-black/40 backdrop-blur-md border-b border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-            : 'bg-transparent border-b border-transparent'
-            }`}
-        >
+      {/* ── Mobile Navigation Top Rail ── */}
+      <header
+        suppressHydrationWarning
+        className={`w-full sticky top-0 z-[2000] transform transition-transform duration-300 ${
+          navVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
+        } md:hidden ${
+          mounted && isCartOpen ? 'hidden' : ''
+        } bg-black/75 backdrop-blur-lg border-b border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)]`}
+      >
           <div className="h-16 flex items-center justify-between px-6 relative">
             {/* Left: Wordmark Logo */}
             <Link
@@ -281,8 +316,10 @@ export default function Navbar() {
               </button>
 
               {/* Auth Control */}
-              <div className="relative">
-                {mounted && isLoaded && !isSignedIn && (
+              <div className="relative min-w-[32px] min-h-[32px] flex items-center justify-end" suppressHydrationWarning>
+                {!mounted || !isLoaded ? (
+                  <div className="w-8 h-8 rounded-full bg-transparent" aria-hidden="true" />
+                ) : !isSignedIn ? (
                   <button
                     onClick={() => openAuthModal()}
                     className="px-3.5 py-1.5 rounded-full border border-white/20 bg-transparent text-[11px] font-mono tracking-widest text-white uppercase transition-colors hover:border-white/50 active:bg-white/10 cursor-pointer"
@@ -290,9 +327,7 @@ export default function Navbar() {
                   >
                     SIGN IN
                   </button>
-                )}
-
-                {mounted && isLoaded && isSignedIn && (
+                ) : (
                   <button
                     onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
                     className="relative flex items-center justify-center rounded-full p-0.5 cursor-pointer"
@@ -306,7 +341,7 @@ export default function Navbar() {
 
                 {/* Account Dropdown */}
                 <AnimatePresence>
-                  {mobileDropdownOpen && (
+                  {mounted && mobileDropdownOpen && (
                     <>
                       <div
                         className="fixed inset-0 z-40 bg-transparent"
@@ -317,7 +352,7 @@ export default function Navbar() {
                         animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className="absolute right-0 mt-3 w-48 z-50 rounded-2xl border border-white/10 bg-[#0A0A0A]/85 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden"
+                        className="absolute right-0 top-full mt-3 w-48 z-50 rounded-2xl border border-white/10 bg-[#0A0A0A]/85 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden"
                       >
                         <div className="py-2 flex flex-col font-body">
                           <Link
@@ -335,11 +370,11 @@ export default function Navbar() {
                             Profile
                           </Link>
                           <button
-                            onClick={async () => {
+                            onClick={() => {
+                              logout();
                               setMobileDropdownOpen(false);
-                              await logout();
                             }}
-                            className="px-5 py-3 text-left text-xs uppercase tracking-wider text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            className="w-full text-left px-5 py-3 text-xs uppercase tracking-wider text-brand-red hover:bg-white/5 transition-colors cursor-pointer"
                           >
                             Logout
                           </button>
@@ -351,95 +386,118 @@ export default function Navbar() {
               </div>
             </div>
           </div>
-        </header>
-      )}
+      </header>
 
-      {/* ── Search Overlay Modal ── */}
-      {searchOpen && (
-        <div className="fixed inset-0 z-[3000] bg-[#0A0A0A] backdrop-blur-xl flex flex-col justify-start px-6 pt-24 animate-[fadeIn_0.3s_ease-out_forwards]">
-          {/* Close Button */}
-          <button
-            onClick={() => setSearchOpen(false)}
-            className="absolute top-6 right-6 p-2 text-brand-stone hover:text-white transition-colors"
-            aria-label="Close search overlay"
-          >
-            <X className="w-6 h-6" />
-          </button>
-
-          {/* Search Form */}
-          <form onSubmit={handleSearchSubmit} className="w-full max-w-lg mx-auto">
-            <label className="text-[10px] uppercase tracking-[0.2em] text-brand-stone font-bold block mb-2 font-body">
-              Search Collection
-            </label>
-            <div className="relative border-b border-brand-graphite py-2 flex items-center">
-              <input
-                type="text"
-                autoFocus
-                placeholder="TYPE TO SEARCH..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-transparent text-lg font-display text-white uppercase tracking-widest focus:outline-none placeholder-brand-graphite"
-              />
-              <button type="submit" className="text-brand-stone hover:text-white p-1">
-                <Search className="w-5 h-5" />
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* ── Mobile Full-Screen Menu Drawer ── */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-[3000] bg-[#0A0A0A] flex flex-col justify-between px-8 py-8 animate-[fadeIn_0.25s_ease-out_forwards]">
-          {/* Top Bar inside Drawer */}
-          <div className="flex items-center justify-between">
-            <Link href="/" onClick={() => setMobileMenuOpen(false)} className="relative w-28 h-10 block">
-              <Image src="/logo.png?v=3" alt="DRFTN Logo" fill className="object-contain object-left" />
-            </Link>
-            <button onClick={() => setMobileMenuOpen(false)} className="text-white p-2" aria-label="Close navigation menu">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Drawer Nav Links */}
-          <nav className="flex flex-col space-y-6 pt-16 flex-grow" aria-label="Mobile navigation links">
-            {NAV_LINKS.map((link, idx) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className="text-4xl font-display font-black uppercase tracking-wider text-brand-silver hover:text-white transition-colors"
-              >
-                <span className="text-brand-red text-lg font-mono mr-3">{String(idx + 1).padStart(2, '0')}</span>
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Bottom section of Drawer */}
-          <div className="border-t border-brand-graphite/40 pt-6 flex items-center justify-between">
-            <div>
-              {mounted && isLoaded && !isSignedIn && (
-                <button
-                  onClick={() => { setMobileMenuOpen(false); openAuthModal(); }}
-                  className="text-xs font-bold uppercase tracking-widest text-brand-silver hover:text-white cursor-pointer"
-                >
-                  Sign In / Register
-                </button>
-              )}
-              {mounted && isLoaded && isSignedIn && (
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold">
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+      {/* Mobile Drawer Navigation Menu Overlay */}
+      <AnimatePresence>
+        {mounted && mobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[2500]"
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="fixed top-0 left-0 bottom-0 w-[85%] max-w-sm bg-brand-black border-r border-brand-graphite z-[2600] p-6 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between pb-8 border-b border-brand-graphite">
+                  <div className="relative w-28 h-7">
+                    <Image
+                      src="/logo.png?v=3"
+                      alt="DRFTN"
+                      fill
+                      sizes="112px"
+                      className="object-contain object-left"
+                    />
                   </div>
-                  <span className="text-xs uppercase tracking-wider text-brand-stone font-bold font-mono">{user?.name}</span>
+                  <button
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2 text-brand-silver hover:text-white"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
                 </div>
-              )}
+
+                <nav className="flex flex-col gap-6 pt-8">
+                  {NAV_LINKS.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`text-lg font-bold tracking-[0.2em] uppercase ${pathname === link.href ? 'text-brand-red' : 'text-brand-offwhite'
+                        }`}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </nav>
+              </div>
+
+              <div className="pt-8 border-t border-brand-graphite flex flex-col gap-4">
+                {!isLoaded ? null : !isSignedIn ? (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      openAuthModal();
+                    }}
+                    className="w-full py-3 bg-white text-black font-bold text-xs uppercase tracking-widest"
+                  >
+                    Sign In
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      logout();
+                    }}
+                    className="w-full py-3 border border-brand-red text-brand-red font-bold text-xs uppercase tracking-widest"
+                  >
+                    Logout
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Search Modal Overlay */}
+      <AnimatePresence>
+        {mounted && searchOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[3000] bg-black/90 backdrop-blur-md flex items-start justify-center pt-24 px-4"
+          >
+            <div className="w-full max-w-2xl relative">
+              <button
+                onClick={() => setSearchOpen(false)}
+                className="absolute -top-12 right-0 text-brand-silver hover:text-white p-2"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <form onSubmit={handleSearchSubmit}>
+                <input
+                  type="text"
+                  placeholder="Search collection, hoodies, tees..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                  className="w-full bg-brand-black border-b-2 border-white px-4 py-4 text-xl md:text-2xl font-mono text-white placeholder-zinc-500 focus:outline-none"
+                />
+              </form>
             </div>
-            <p className="text-[10px] uppercase tracking-widest text-brand-stone">BENGALURU STREETWEAR</p>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

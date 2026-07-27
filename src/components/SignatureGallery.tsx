@@ -130,6 +130,7 @@ export default function SignatureGallery({
     if (images.length <= 1 || !autoSlideInterval || autoSlideInterval <= 0) return;
 
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       if (Date.now() < pausedUntilRef.current) return;
       setLocalIndex((prev) => (prev + 1) % images.length);
     }, autoSlideInterval);
@@ -152,6 +153,16 @@ export default function SignatureGallery({
     }
   };
 
+  const handleMouseEnter = () => {
+    if (images.length > 1) {
+      setLocalIndex(1);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setLocalIndex(0);
+  };
+
   if (images.length === 0) {
     return <div className={`w-full ${aspectClass} bg-[#111]`} />;
   }
@@ -159,6 +170,8 @@ export default function SignatureGallery({
   return (
     <div
       onClick={onClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerMove={pauseAutoSlide}

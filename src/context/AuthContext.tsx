@@ -519,85 +519,56 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
                   </form>
                 )}
 
-                {/* ── DEFAULT SIGN-IN STEP ── */}
+                {/* ── UNIFIED SINGLE SIGN-IN SELECTION STEP ── */}
                 {!isVerifying && !profileStep && (
                   <div className="w-full space-y-5">
                     <div className="text-center space-y-1">
                       <h3 className="text-sm font-black uppercase text-white tracking-widest font-mono">
-                        {modalMode === 'phone' ? 'Sign In' : 'Sign in with Google'}
+                        Sign In
                       </h3>
                       <p className="text-[10px] text-zinc-400 uppercase tracking-wider leading-relaxed">
                         Join the drop list &amp; secure your checkout.
                       </p>
                     </div>
 
-                    {modalMode === 'phone' ? (
-                      <div className="space-y-4">
-                        <button
-                          onClick={startPhoneOTP}
-                          disabled={isActionInProgress || isVerifying}
-                          className="w-full bg-white hover:bg-zinc-200 text-black py-4 font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 cursor-pointer border border-white disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Smartphone className="w-4 h-4" />
-                          {isActionInProgress ? 'Opening Secure Portal...' : 'Continue with Phone'}
-                        </button>
+                    <div className="space-y-4">
+                      <button
+                        onClick={startPhoneOTP}
+                        disabled={isActionInProgress || isVerifying}
+                        className="w-full bg-white hover:bg-zinc-200 text-black py-4 font-bold uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 cursor-pointer border border-white disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        {isActionInProgress ? 'Opening Secure Portal...' : 'Continue with Phone'}
+                      </button>
 
-                        <div className="relative text-center">
-                          <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-white/10" />
-                          </div>
-                          <span className="relative bg-zinc-950 px-3 text-[9px] uppercase tracking-widest font-mono text-zinc-550">
-                            Or
-                          </span>
+                      <div className="relative text-center">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-white/10" />
                         </div>
-
-                        <button
-                          onClick={() => { if (!isActionInProgress && !isVerifying) setModalMode('google'); }}
-                          disabled={isActionInProgress || isVerifying}
-                          className="w-full bg-transparent hover:bg-white/5 text-white border border-white/10 py-3.5 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Google Account
-                        </button>
-
-                        <p className="text-center text-[9px] text-zinc-650 uppercase tracking-widest font-mono leading-relaxed">
-                          By continuing you agree to our{' '}
-                          <a href="/policies/terms-and-conditions" target="_blank" className="text-zinc-500 underline">
-                            Terms
-                          </a>{' '}
-                          &amp;{' '}
-                          <a href="/policies/privacy-policy" target="_blank" className="text-zinc-500 underline">
-                            Privacy Policy
-                          </a>
-                        </p>
+                        <span className="relative bg-zinc-950 px-3 text-[9px] uppercase tracking-widest font-mono text-zinc-550">
+                          Or
+                        </span>
                       </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <button
-                          onClick={handleGoogleLogin}
-                          disabled={isActionInProgress || isVerifying}
-                          className="w-full bg-white hover:bg-zinc-200 text-black py-4 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isActionInProgress ? 'Redirecting to Google...' : 'Continue with Google'}
-                        </button>
 
-                        <div className="relative text-center">
-                          <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-white/10" />
-                          </div>
-                          <span className="relative bg-zinc-950 px-3 text-[9px] uppercase tracking-widest font-mono text-zinc-550">
-                            Or
-                          </span>
-                        </div>
+                      <button
+                        onClick={handleGoogleLogin}
+                        disabled={isActionInProgress || isVerifying}
+                        className="w-full bg-transparent hover:bg-white/5 text-white border border-white/10 py-3.5 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isActionInProgress ? 'Redirecting to Google...' : 'Google Account'}
+                      </button>
 
-                        <button
-                          onClick={() => { if (!isActionInProgress && !isVerifying) setModalMode('phone'); }}
-                          disabled={isActionInProgress || isVerifying}
-                          className="w-full bg-transparent hover:bg-white/5 text-white border border-white/10 py-3.5 font-bold uppercase tracking-widest text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Mobile OTP
-                        </button>
-                      </div>
-                    )}
+                      <p className="text-center text-[9px] text-zinc-650 uppercase tracking-widest font-mono leading-relaxed">
+                        By continuing you agree to our{' '}
+                        <a href="/policies/terms-and-conditions" target="_blank" className="text-zinc-500 underline">
+                          Terms
+                        </a>{' '}
+                        &amp;{' '}
+                        <a href="/policies/privacy-policy" target="_blank" className="text-zinc-500 underline">
+                          Privacy Policy
+                        </a>
+                      </p>
+                    </div>
                   </div>
                 )}
               </motion.div>

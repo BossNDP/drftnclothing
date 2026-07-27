@@ -7,7 +7,6 @@ import MiniCart from '@/components/MiniCart';
 import WhatsAppButton from '@/components/WhatsAppButton';
 import ToastContainer from '@/components/ToastContainer';
 import AddToCartAnimation from '@/components/AddToCartAnimation';
-import BrandLoader from '@/components/BrandLoader';
 import PushPrompt from '@/components/PushPrompt';
 import NotificationToast from '@/components/NotificationToast';
 import PageTransition from '@/components/PageTransition';
@@ -207,7 +206,6 @@ export default function RootLayout({
               <WhatsAppButton />
               <ToastContainer />
               <AddToCartAnimation />
-              <BrandLoader />
               <PushPrompt />
               <NotificationToast />
               {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}

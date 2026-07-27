@@ -142,7 +142,7 @@ function StorefrontTile({
         aria-label={`View ${product.name} — ₹${(product.price / 100).toLocaleString('en-IN')}`}
       >
         <div
-          className={`product-card relative overflow-hidden rounded-sm bg-zinc-950 w-full border border-white/10 group-hover:border-white/40 transition-all duration-400 shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${
+          className={`product-card relative overflow-hidden rounded-md bg-zinc-950 w-full border border-white/10 group-hover:border-white/40 transition-all duration-400 shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${
             isHero ? 'aspect-[4/5]' : 'aspect-[3/4]'
           }`}
         >
