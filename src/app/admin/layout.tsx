@@ -3,7 +3,7 @@
 import React, { useEffect, useState, createContext, useContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, ShoppingBag, PackageSearch, Settings, LogOut, Tag, Menu, X, Bell, Users, Loader2 } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, PackageSearch, Settings, LogOut, Tag, Menu, X, Bell, Users, Loader2, Heart, Clock } from 'lucide-react';
 import { useAuth, useUser, useClerk } from '@clerk/nextjs';
 
 const NAV_ITEMS = [
@@ -11,6 +11,8 @@ const NAV_ITEMS = [
   { label: 'Categories', href: '/admin/categories', icon: Tag },
   { label: 'Products', href: '/admin/products', icon: PackageSearch },
   { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
+  { label: 'Wishlist', href: '/admin/wishlist', icon: Heart },
+  { label: 'Inventory Holds', href: '/admin/inventory-holds', icon: Clock },
   { label: 'Discounts', href: '/admin/discounts', icon: Tag },
   { label: 'Notifications', href: '/admin/notifications', icon: Bell },
   { label: 'Users', href: '/admin/users', icon: Users },

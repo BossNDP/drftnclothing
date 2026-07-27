@@ -7,13 +7,14 @@ import { DeliverySuccessEmail } from '@/components/DeliverySuccessEmail';
 import { DepositConfirmationEmail } from '@/components/DepositConfirmationEmail';
 import { PaymentPendingReminderEmail } from '@/components/PaymentPendingReminderEmail';
 import { DeliveryStatusEmail } from '@/components/DeliveryStatusEmail';
+import { WishlistReminderEmail, WishlistEmailItem } from '@/components/WishlistReminderEmail';
 
 const resend = new Resend(process.env.RESEND_API_KEY || 're_dummy_for_build');
 
 // The verified "from" address must match a domain you've added in Resend.
 // e.g. RESEND_FROM_EMAIL="DRFTN <orders@drftnclothing.in>"
 const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL || 'DRFTN <onboarding@resend.dev>';
-const REPLY_TO_EMAIL = 'drftnclothing2@gmail.com';
+const REPLY_TO_EMAIL = 'drftnclothing@gmail.com';
 const ADMIN_CC_EMAIL = 'drftnclothing@gmail.com';
 
 /**
@@ -683,6 +684,64 @@ export async function sendDeliveryStatusEmail({
     }
   } catch (err: any) {
     console.error(`[Email] Failed to send delivery status email (${status}) for order ${orderNumber}:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Sends a consolidated Wishlist Reminder email to the customer using Resend.
+ */
+export async function sendWishlistReminderEmail({
+  customerEmail,
+  customerName = 'Valued Customer',
+  items,
+}: {
+  customerEmail: string;
+  customerName?: string;
+  items: WishlistEmailItem[];
+}): Promise<void> {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Email] RESEND_API_KEY not set — skipping wishlist reminder email.');
+    return;
+  }
+
+  if (!customerEmail || items.length === 0) {
+    console.warn('[Email] Invalid email or empty wishlist items — skipping wishlist reminder email.');
+    return;
+  }
+
+  try {
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const htmlString = renderToStaticMarkup(
+      React.createElement(WishlistReminderEmail, {
+        customerName,
+        items,
+        siteUrl: process.env.NEXT_PUBLIC_APP_URL || 'https://drftnclothing.in',
+      })
+    );
+
+    const isMulti = items.length > 1;
+    const firstItemName = items[0].name;
+    const subject = isMulti
+      ? `Still thinking about it? ${items.length} items waiting in your Wishlist | DRFTN`
+      : `Still thinking about it? Your ${firstItemName} is waiting | DRFTN`;
+
+    const { error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: [customerEmail],
+      replyTo: REPLY_TO_EMAIL,
+      subject,
+      html: htmlString,
+    });
+
+    if (error) {
+      console.error(`[Email] Resend error for wishlist reminder email to ${customerEmail}:`, error);
+      throw new Error(`Resend API Error: ${error.name} - ${error.message}`);
+    } else {
+      console.log(`[Email] Wishlist reminder email sent successfully to ${customerEmail} for ${items.length} items.`);
+    }
+  } catch (err: any) {
+    console.error(`[Email] Failed to send wishlist reminder email to ${customerEmail}:`, err);
     throw err;
   }
 }

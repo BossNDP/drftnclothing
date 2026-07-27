@@ -4,8 +4,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingBag, X, Menu, Search } from 'lucide-react';
+import { ShoppingBag, X, Menu, Search, Heart } from 'lucide-react';
 import { useCartStore } from '../lib/cartStore';
+import { useWishlistStore } from '../lib/wishlistStore';
 import { useAnimationStore } from '../lib/animationStore';
 import { useAuthSession } from '@/context/AuthContext';
 import { motion, AnimatePresence, useScroll, useSpring } from 'framer-motion';
@@ -13,6 +14,7 @@ import AnnouncementTicker from './AnnouncementTicker';
 
 const NAV_LINKS = [
   { href: '/shop', label: 'Collection' },
+  { href: '/wishlist', label: 'Wishlist' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];
@@ -21,11 +23,32 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isSignedIn, isLoaded, user, logout, openAuthModal } = useAuthSession();
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [mobileDropdownOpen, setMobileDropdownOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(e.target as Node)) {
+        setAccountMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const setIsOpen = useCartStore((state) => state.setIsOpen);
   const isCartOpen = useCartStore((state) => state.isOpen);
   const cartCount = useCartStore((state) => state.items.reduce((acc, item) => acc + item.quantity, 0));
+  const wishlistCount = useWishlistStore((state) => state.wishlistIds.size);
+  const fetchWishlist = useWishlistStore((state) => state.fetchWishlist);
   const cartPulseActive = useAnimationStore((state) => state.cartPulseActive);
+  const wishlistPulseActive = useAnimationStore((state) => state.wishlistPulseActive);
+
+  useEffect(() => {
+    if (isLoaded) {
+      fetchWishlist(!!isSignedIn);
+    }
+  }, [isLoaded, isSignedIn, fetchWishlist]);
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -181,11 +204,55 @@ export default function Navbar() {
             {/* Search Trigger */}
             <button
               onClick={() => setSearchOpen(true)}
-              className="text-brand-silver hover:text-white p-2.5 transition-colors"
+              className="hidden sm:flex text-brand-silver hover:text-white p-2.5 transition-colors"
               aria-label="Open search overlay"
             >
               <Search className="w-4.5 h-4.5 stroke-[1.8]" />
             </button>
+
+            {/* Wishlist Trigger with Heart Burst Animation & Phone Haptic Vibration */}
+            <motion.div
+              whileTap={{ scale: 0.75 }}
+              animate={
+                wishlistPulseActive
+                  ? { scale: [1, 1.45, 0.85, 1.2, 1], rotate: [0, -14, 14, 0] }
+                  : { scale: 1 }
+              }
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+            >
+              <Link
+                href="/wishlist"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && typeof window.navigator !== 'undefined' && window.navigator.vibrate) {
+                    try {
+                      window.navigator.vibrate([25, 40, 25]);
+                    } catch (e) {
+                      // ignore vibration errors if not supported
+                    }
+                  }
+                }}
+                className="relative flex items-center p-2.5 text-brand-silver hover:text-white transition-colors"
+                aria-label={`Wishlist${mounted && wishlistCount > 0 ? `, ${wishlistCount} items` : ''}`}
+              >
+                <Heart
+                  className={`w-4.5 h-4.5 stroke-[1.8] transition-all duration-300 ${
+                    mounted && wishlistCount > 0
+                      ? 'text-pink-500 fill-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.9)]'
+                      : 'hover:text-pink-400'
+                  }`}
+                />
+                {mounted && wishlistCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-1.5 right-1.5 bg-pink-500 text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(236,72,153,0.9)]"
+                    aria-hidden="true"
+                  >
+                    {wishlistCount}
+                  </motion.span>
+                )}
+              </Link>
+            </motion.div>
 
             {/* Cart Trigger */}
             <button
@@ -205,14 +272,14 @@ export default function Navbar() {
               )}
             </button>
 
-            {/* Desktop Auth */}
-            <div className="hidden lg:flex items-center pl-2" suppressHydrationWarning>
+            {/* Auth Account Menu (Mobile & Desktop) */}
+            <div ref={accountMenuRef} className="flex items-center pl-1 sm:pl-2" suppressHydrationWarning>
               {!mounted || !isLoaded ? (
-                <div className="w-16 h-6 flex items-center justify-end" aria-hidden="true" />
+                <div className="w-8 h-6 flex items-center justify-end" aria-hidden="true" />
               ) : !isSignedIn ? (
                 <button
                   onClick={() => openAuthModal()}
-                  className="text-[9px] font-bold tracking-[0.2em] uppercase text-brand-silver hover:text-white transition-colors duration-200 cursor-pointer"
+                  className="text-[9px] font-bold tracking-[0.2em] uppercase text-brand-silver hover:text-white transition-colors duration-200 cursor-pointer px-1 py-1"
                   aria-label="Sign in to your account"
                 >
                   Sign In
@@ -220,22 +287,52 @@ export default function Navbar() {
               ) : (
                 <div className="relative group z-50">
                   <button
-                    className="w-6 h-6 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold hover:border-white transition-colors cursor-pointer"
+                    onClick={() => setAccountMenuOpen((prev) => !prev)}
+                    className="w-7 h-7 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-[10px] font-mono font-bold hover:border-white transition-colors cursor-pointer"
                     aria-label="Open Account Menu"
                   >
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </button>
-                  <div className="absolute right-0 top-full pt-2 w-40 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200">
-                    <div className="bg-zinc-950 border border-white/10 rounded-none shadow-2xl py-1">
-                      <Link href="/account/orders" className="block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-400 hover:text-white hover:bg-white/5">
+                  <div
+                    className={`absolute right-0 top-full pt-2 w-44 z-50 transition-all duration-200 ${
+                      accountMenuOpen
+                        ? 'opacity-100 pointer-events-auto'
+                        : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                    }`}
+                  >
+                    <div className="bg-zinc-950 border border-white/15 rounded-md shadow-2xl py-1 overflow-hidden backdrop-blur-xl">
+                      <Link
+                        href="/account/orders"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-300 hover:text-white hover:bg-white/10"
+                      >
                         Orders
                       </Link>
-                      <Link href="/account/orders" className="block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-400 hover:text-white hover:bg-white/5 border-t border-white/5">
+                      <Link
+                        href="/wishlist"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center justify-between px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-300 hover:text-white hover:bg-white/10 border-t border-white/10"
+                      >
+                        <span>Wishlist</span>
+                        {mounted && wishlistCount > 0 && (
+                          <span className="bg-pink-500/20 text-pink-300 border border-pink-500/40 text-[8px] px-1.5 py-0.2 rounded-full font-mono">
+                            {wishlistCount}
+                          </span>
+                        )}
+                      </Link>
+                      <Link
+                        href="/account/orders"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-zinc-300 hover:text-white hover:bg-white/10 border-t border-white/10"
+                      >
                         Profile
                       </Link>
                       <button
-                        onClick={logout}
-                        className="w-full text-left block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-brand-red hover:bg-white/5 cursor-pointer border-t border-white/5"
+                        onClick={() => {
+                          setAccountMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full text-left block px-4 py-2.5 text-[9px] font-bold tracking-wider uppercase text-brand-red hover:bg-white/10 cursor-pointer border-t border-white/10"
                       >
                         Logout
                       </button>
@@ -361,6 +458,18 @@ export default function Navbar() {
                             className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
                           >
                             Orders
+                          </Link>
+                          <Link
+                            href="/wishlist"
+                            onClick={() => setMobileDropdownOpen(false)}
+                            className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5 flex items-center justify-between"
+                          >
+                            <span>Wishlist</span>
+                            {mounted && wishlistCount > 0 && (
+                              <span className="bg-pink-500/20 text-pink-300 border border-pink-500/40 text-[9px] px-2 py-0.5 rounded-full font-mono font-bold">
+                                {wishlistCount}
+                              </span>
+                            )}
                           </Link>
                           <Link
                             href="/account/orders"

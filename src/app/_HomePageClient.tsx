@@ -3,12 +3,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, ArrowUpRight, ChevronRight, Plus } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, ChevronRight, Plus, Heart, Loader2 } from 'lucide-react';
 import { dbService } from '@/lib/db';
 import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import SignatureGallery from '@/components/SignatureGallery';
 import { Product, Category } from '@/types';
 import { useCartStore } from '@/lib/cartStore';
+import { useWishlistStore } from '@/lib/wishlistStore';
+import { useUser, useClerk } from '@clerk/nextjs';
+import HeartBurstAnimation from '@/components/HeartBurstAnimation';
 import { useAnimationStore } from '@/lib/animationStore';
 import { toast } from '@/lib/toast';
 import HeroHoodieScene from '@/components/HeroHoodieScene';
@@ -87,6 +90,14 @@ function StorefrontTile({
   isHero: boolean;
   onQuickAdd: (e: React.MouseEvent, p: Product) => void;
 }) {
+  const { isSignedIn } = useUser();
+  const clerk = useClerk();
+  const [burstTrigger, setBurstTrigger] = useState<number>(0);
+
+  const isWishlisted = useWishlistStore((state) => state.wishlistIds.has(product.id));
+  const isLoadingWishlist = useWishlistStore((state) => state.loadingItemIds.has(product.id));
+  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
+
   const [isHovered, setIsHovered] = useState(false);
   const [touchActive, setTouchActive] = useState(false);
   const touchStartX = useRef<number>(0);
@@ -138,16 +149,16 @@ function StorefrontTile({
     >
       <Link
         href={`/shop/${product.slug}`}
-        className="flex flex-col w-full h-full group"
+        className="flex flex-col w-full h-full group cursor-pointer"
         aria-label={`View ${product.name} — ₹${(product.price / 100).toLocaleString('en-IN')}`}
       >
         <div
-          className={`product-card relative overflow-hidden rounded-md bg-zinc-950 w-full border border-white/10 group-hover:border-white/40 transition-all duration-400 shadow-[0_12px_40px_rgba(0,0,0,0.6)] ${
+          className={`product-card relative overflow-hidden rounded-md bg-zinc-950 w-full border border-white/10 group-hover:border-white/40 transition-all duration-400 shadow-[0_12px_40px_rgba(0,0,0,0.6)] cursor-pointer ${
             isHero ? 'aspect-[4/5]' : 'aspect-[3/4]'
           }`}
         >
           {/* Primary Image with 1.0 -> 1.04 Scale Hover */}
-          <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden cursor-pointer">
             <Image
               src={getOptimizedImageUrl(primaryImage, isHero ? 1000 : 600)}
               alt={product.name}
@@ -176,7 +187,7 @@ function StorefrontTile({
             )}
           </div>
 
-          {/* Bottom-Left Selective Badge Taxonomy (Positioned safely away from model faces with local scrim) */}
+          {/* Bottom-Left Selective Badge Taxonomy */}
           {badge && (
             <div className="absolute bottom-3 left-3 z-20 pointer-events-none p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
               <span className={`inline-flex items-center gap-1.5 uppercase ${badge.containerClass}`}>
@@ -186,14 +197,55 @@ function StorefrontTile({
             </div>
           )}
 
-          {/* Top-Right Corner Badge: Discount Tag (-X%) */}
+          {/* Discount Badge (Positioned at top-left if present to make room for Wishlist Heart) */}
           {discountPercent !== null && (
-            <div className="absolute top-3 right-3 z-20 pointer-events-none">
+            <div className="absolute top-3 left-3 z-20 pointer-events-none">
               <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-white bg-red-600/90 px-2 py-0.5 uppercase backdrop-blur-sm border border-red-500/40 rounded-sm">
                 -{discountPercent}%
               </span>
             </div>
           )}
+
+          {/* Top-Right Corner Wishlist Heart Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!isWishlisted) {
+                setBurstTrigger(Date.now());
+              }
+              toggleWishlist(
+                product.id,
+                !!isSignedIn,
+                () => clerk?.openSignIn?.(),
+                product
+              );
+            }}
+            disabled={isLoadingWishlist}
+            className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/90 hover:scale-110 active:scale-95 transition-all shadow-lg pointer-events-auto overflow-hidden cursor-pointer"
+            aria-label={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+          >
+            <HeartBurstAnimation triggerKey={burstTrigger} />
+            {isLoadingWishlist ? (
+              <Loader2 className="w-3.5 h-3.5 text-zinc-300 animate-spin" />
+            ) : (
+              <motion.div
+                key={isWishlisted ? 'filled' : 'outline'}
+                initial={{ scale: 1 }}
+                animate={{ scale: [1, 1.25, 1] }}
+                transition={{ duration: 0.22, ease: 'easeInOut' }}
+              >
+                <Heart
+                  className={`w-3.5 h-3.5 transition-colors ${
+                    isWishlisted
+                      ? 'fill-pink-500 text-pink-500 filter drop-shadow-[0_0_8px_rgba(236,72,153,0.6)]'
+                      : 'text-white/80 group-hover:text-white'
+                  }`}
+                />
+              </motion.div>
+            )}
+          </button>
 
           {/* Bottom subtle gradient */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none z-[11]" />

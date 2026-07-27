@@ -8,7 +8,9 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useCartStore } from '@/lib/cartStore';
 
 const NAV_LINKS = [
+  { href: '/', label: 'Home' },
   { href: '/shop', label: 'Collection' },
+  { href: '/wishlist', label: 'Wishlist' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
 ];

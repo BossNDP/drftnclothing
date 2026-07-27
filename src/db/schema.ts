@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, unique, index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // 0. Order Status Enum
@@ -98,55 +98,52 @@ export const orders = pgTable('orders', {
     image: string;
     slug: string;
   }>>().notNull(),
-  subtotal: integer('subtotal').notNull(), // in paise
-  shipping_charge: integer('shipping_charge').notNull(), // in paise
+  subtotal: integer('subtotal').notNull(),
+  shipping_fee: integer('shipping_fee').notNull().default(0),
+  discount_amount: integer('discount_amount').notNull().default(0),
   discount_code: text('discount_code'),
-  discount_amount: integer('discount_amount'), // in paise
-  total: integer('total').notNull(), // in paise
-  payment_status: text('payment_status').$type<'pending' | 'paid' | 'failed' | 'refunded'>().notNull().default('pending'),
+  total_amount: integer('total_amount').notNull(),
+  payment_method: text('payment_method').$type<'cod' | 'online'>().notNull(),
+  payment_status: text('payment_status').$type<'pending' | 'verifying' | 'paid' | 'failed' | 'refunded'>().notNull().default('pending'),
   razorpay_order_id: text('razorpay_order_id'),
-  payment_id: text('razorpay_payment_id'), // Razorpay Payment ID
-  order_status: orderStatusEnum('order_status').notNull().default('pending_payment'),
-  fulfillment_type: text('fulfillment_type').$type<'delivery' | 'pickup'>().notNull().default('delivery'),
-  pickup_status: text('pickup_status').$type<'awaiting_pickup' | 'ready_for_pickup' | 'collected'>(),
-  pickup_code: text('pickup_code'),
-  tracking_number: text('tracking_number'), // Shiprocket AWB
-  courier_partner: text('courier_partner'),
+  razorpay_payment_id: text('razorpay_payment_id'),
+  status: orderStatusEnum('status').notNull().default('placed'),
+  fulfillment_type: text('fulfillment_type').$type<'shiprocket' | 'borzo' | 'store_pickup'>().notNull().default('shiprocket'),
+  borzo_order_id: text('borzo_order_id'),
   shiprocket_order_id: text('shiprocket_order_id'),
-  courier_provider: text('courier_provider'), // 'borzo' | 'shiprocket' | null
-  zone: text('zone'), // 'BLR_EXPRESS' | 'STANDARD' | null
-  invoice_number: text('invoice_number'),
-  payment_type: text('payment_type').$type<'prepaid' | 'cod_with_deposit'>().notNull().default('prepaid'),
-  deposit_amount: integer('deposit_amount'), // in paise, for COD orders (₹200 = 20000)
-  remaining_amount: integer('remaining_amount'), // in paise, due at delivery (total - deposit_amount)
-  deposit_status: text('deposit_status').$type<'pending' | 'paid' | 'failed'>(),
-  verified_phone: text('verified_phone'), // Phone number verified via phone.email
+  shiprocket_shipment_id: text('shiprocket_shipment_id'),
+  tracking_number: text('tracking_number'),
+  tracking_url: text('tracking_url'),
+  notes: text('notes'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  holdExpiresAt: timestamp('hold_expires_at', { withTimezone: true }),
-  reminderSent: boolean('reminder_sent').notNull().default(false),
 });
 
 // 4. Discount Codes Table
 export const discountCodes = pgTable('discount_codes', {
   id: uuid('id').primaryKey().defaultRandom(),
-  code: text('code').unique().notNull(), // UPPERCASE
-  discount_type: text('discount_type').$type<'percent' | 'flat'>().notNull(),
-  discount_value: integer('discount_value').notNull(), // percent: 0-100, flat: paise
-  min_order_value: integer('min_order_value').notNull().default(0), // paise
+  code: text('code').unique().notNull(),
+  discount_type: text('discount_type').$type<'percentage' | 'fixed_amount'>().notNull(),
+  value: integer('value').notNull(), // e.g. 10 for 10%, or 20000 for ₹200
+  min_order_amount: integer('min_order_amount').default(0),
+  max_discount_amount: integer('max_discount_amount'),
   usage_limit: integer('usage_limit'),
-  used_count: integer('used_count').notNull().default(0),
+  times_used: integer('times_used').notNull().default(0),
+  used_count: integer('times_used').notNull().default(0),
   is_active: boolean('is_active').notNull().default(true),
   expires_at: timestamp('expires_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
-
-// 5. Settings Table
-export const settings = pgTable('settings', {
-  key: text('key').primaryKey(),
-  value: text('value').notNull(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// 5. Store Settings Table
+export const storeSettings = pgTable('store_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').unique().notNull(),
+  value: jsonb('value').notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+export const settings = storeSettings;
 
 // 6. Contact Messages Table
 export const contactMessages = pgTable('contact_messages', {
@@ -207,4 +204,29 @@ export const users = pgTable('users', {
   authProvider: authProviderEnum('auth_provider').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
+});
+
+// 12. Wishlist Table (Lightweight, scalable, single row per item, zero duplicated product data)
+export const wishlist = pgTable('wishlist', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  user_id: text('user_id').notNull(), // Clerk User ID
+  product_id: uuid('product_id').notNull().references(() => products.id, { onDelete: 'cascade' }),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  last_reminder_sent_at: timestamp('last_reminder_sent_at', { withTimezone: true }),
+  reminder_count: integer('reminder_count').notNull().default(0),
+}, (t) => [
+  unique('wishlist_user_product_unique').on(t.user_id, t.product_id),
+  index('wishlist_user_id_idx').on(t.user_id),
+  index('wishlist_product_id_idx').on(t.product_id),
+]);
+
+// 13. Wishlist Campaigns Log Table (Admin Campaign Tracking)
+export const wishlistCampaigns = pgTable('wishlist_campaigns', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  campaign_name: text('campaign_name').notNull(),
+  email_type: text('email_type').notNull(),
+  recipient_count: integer('recipient_count').notNull().default(0),
+  subject: text('subject').notNull(),
+  sent_at: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  created_by: text('created_by'),
 });

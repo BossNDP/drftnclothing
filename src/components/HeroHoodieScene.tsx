@@ -66,12 +66,12 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         defaults: { ease: 'power3.out' },
       });
 
-      // Ken Burns Image Settle: scale(1.22) -> scale(1.18) over 1.2s (Initial Crop Framing)
+      // Fixed initial scale for hoodie (no bounce/scale shifts)
       if (heroImageWrapperRef.current) {
         entranceTl.fromTo(
           heroImageWrapperRef.current,
-          { scale: 1.22 },
-          { scale: 1.18, duration: 1.2, ease: 'power2.out' },
+          { scale: 1.0 },
+          { scale: 1.0, duration: 0.1 },
           0
         );
       }
@@ -140,17 +140,12 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         onUpdate: (self) => {
           const p = self.progress;
 
-          // Hero Crop-and-Reveal (0.0 -> 0.28 scroll progress)
+          // Hoodie scale remains fixed (no bounce/scale distortion)
           if (heroImageWrapperRef.current) {
-            const cropProgress = Math.min(1, p / 0.28);
-            if (Math.abs(cropProgress - lastCropPRef.current) > 0.003) {
-              lastCropPRef.current = cropProgress;
-              const currentScale = 1.18 - (0.18 * cropProgress);
-              gsap.set(heroImageWrapperRef.current, { scale: currentScale });
-            }
+            gsap.set(heroImageWrapperRef.current, { scale: 1.0 });
           }
 
-          // Outfit color shift material progress: -20% to 130%
+          // Outfit color shift material progress: -20% to 130% (White -> Black Hoodie)
           if (hoodieDarkEl) {
             const matProgress = -20 + p * 150;
             hoodieDarkEl.style.setProperty('--material-progress', `${matProgress}%`);
@@ -179,41 +174,14 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             }
           }
 
-          // Text block scrub: HARD CLAMP text fade out to 0 between 15% and 40% scroll distance (Guarded)
+          // Text block stays permanently visible (does NOT fade out on scroll)
           if (textBlockRef.current) {
-            const startFade = 0.15;
-            const endFade = 0.40;
-            if (p <= startFade) {
-              if (textClampStateRef.current !== 'visible') {
-                textClampStateRef.current = 'visible';
-                gsap.set(textBlockRef.current, {
-                  opacity: 1,
-                  y: 0,
-                  visibility: 'visible',
-                  pointerEvents: 'auto',
-                });
-              }
-            } else if (p >= endFade) {
-              if (textClampStateRef.current !== 'hidden') {
-                textClampStateRef.current = 'hidden';
-                gsap.set(textBlockRef.current, {
-                  opacity: 0,
-                  y: -20,
-                  visibility: 'hidden',
-                  pointerEvents: 'none',
-                });
-              }
-            } else {
-              textClampStateRef.current = 'fading';
-              const textProgress = (p - startFade) / (endFade - startFade);
-              const currentOpacity = Math.max(0, 1 - textProgress);
-              gsap.set(textBlockRef.current, {
-                opacity: currentOpacity,
-                y: -20 * textProgress,
-                visibility: currentOpacity <= 0.01 ? 'hidden' : 'visible',
-                pointerEvents: currentOpacity < 0.1 ? 'none' : 'auto',
-              });
-            }
+            gsap.set(textBlockRef.current, {
+              opacity: 1,
+              y: 0,
+              visibility: 'visible',
+              pointerEvents: 'auto',
+            });
           }
 
           // Scroll cue indicator scrub: fade out early (0 -> 12% scroll distance) (Guarded)
@@ -348,10 +316,24 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             className="absolute inset-0 w-full h-full overflow-hidden transform-gpu"
             style={{ transformOrigin: '75% 20%' }}
           >
+            {/* Background image (bg.png) behind hoodie — dimmed for maximum text & garment contrast */}
+            <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
+              <Image
+                src="/bg.png"
+                alt="Hero Background"
+                fill
+                priority
+                fetchPriority="high"
+                quality={90}
+                className="object-cover object-center brightness-[0.55] contrast-[1.05]"
+              />
+              <div className="absolute inset-0 bg-black/40" />
+            </div>
+
             {/* White Base Outfit Layer */}
             <div
               ref={hoodieLightRef}
-              className="absolute inset-0 w-full h-full"
+              className="absolute inset-0 w-full h-full z-1"
             >
               {/* Mobile Viewport Outfit Photo */}
               <div className="relative w-full h-full md:hidden">

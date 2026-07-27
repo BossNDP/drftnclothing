@@ -6,15 +6,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Search, SlidersHorizontal, Grid3X3, Grid2X2, ArrowUpDown, X, Sparkles, Plus, ShoppingBag } from 'lucide-react';
+import { ChevronDown, Search, SlidersHorizontal, Grid3X3, Grid2X2, ArrowUpDown, X, Sparkles, Plus, ShoppingBag, Heart, Loader2 } from 'lucide-react';
 import { dbService } from '@/lib/db';
 import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import SignatureGallery from '@/components/SignatureGallery';
 import { Product, Category } from '@/types';
 import { useCartStore } from '@/lib/cartStore';
+import { useWishlistStore } from '@/lib/wishlistStore';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { useAnimationStore } from '@/lib/animationStore';
 import { toast } from '@/lib/toast';
 import { ProductGridSkeleton } from '@/components/Skeletons';
+import HeartBurstAnimation from '@/components/HeartBurstAnimation';
 
 const CATEGORY_VISUALS: Record<string, { label: string; image: string }> = {
   all: {
@@ -79,6 +82,14 @@ function ShopProductCard({
   aspectClass?: string;
   index?: number;
 }) {
+  const { isSignedIn } = useUser();
+  const clerk = useClerk();
+  const [burstTrigger, setBurstTrigger] = useState<number>(0);
+
+  const isWishlisted = useWishlistStore((state) => state.wishlistIds.has(prod.id));
+  const isLoadingWishlist = useWishlistStore((state) => state.loadingItemIds.has(prod.id));
+  const toggleWishlist = useWishlistStore((state) => state.toggleWishlist);
+
   const [isAdding, setIsAdding] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -227,15 +238,7 @@ function ShopProductCard({
                   return null;
                 })()
               }
-              overlayRight={
-                imageCount > 1 && (
-                  <div className="bg-black/80 px-2 py-0.5 border border-white/20 rounded-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-280">
-                    <span className="text-[9px] font-mono text-white/80 tracking-wider">
-                      {String(activeIdx + 1).padStart(2, '0')} / {String(imageCount).padStart(2, '0')}
-                    </span>
-                  </div>
-                )
-              }
+              overlayRight={null}
             />
 
             {/* Desktop Only Ghost Text Overlay */}
@@ -254,6 +257,47 @@ function ShopProductCard({
 
             {/* Subtle bottom dark gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none z-[11]" />
+
+            {/* Top-Right Corner Wishlist Heart Button (Framer Motion 220ms 1 -> 1.25 -> 1) */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isWishlisted) {
+                  setBurstTrigger(Date.now());
+                }
+                toggleWishlist(
+                  prod.id,
+                  !!isSignedIn,
+                  () => clerk?.openSignIn?.(),
+                  prod
+                );
+              }}
+              disabled={isLoadingWishlist}
+              className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-black/90 hover:scale-110 active:scale-95 transition-all shadow-lg pointer-events-auto overflow-hidden"
+              aria-label={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+            >
+              <HeartBurstAnimation triggerKey={burstTrigger} />
+              {isLoadingWishlist ? (
+                <Loader2 className="w-3.5 h-3.5 text-zinc-300 animate-spin" />
+              ) : (
+                <motion.div
+                  key={isWishlisted ? 'filled' : 'outline'}
+                  initial={{ scale: 1 }}
+                  animate={{ scale: [1, 1.25, 1] }}
+                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                >
+                  <Heart
+                    className={`w-3.5 h-3.5 transition-colors ${
+                      isWishlisted
+                        ? 'fill-pink-500 text-pink-500 filter drop-shadow-[0_0_8px_rgba(236,72,153,0.6)]'
+                        : 'text-white/80 group-hover:text-white'
+                    }`}
+                  />
+                </motion.div>
+              )}
+            </button>
 
             {/* Corner-Anchored Quick Add Button with Scale-Bounce & Flash */}
             {!isOutOfStock && (

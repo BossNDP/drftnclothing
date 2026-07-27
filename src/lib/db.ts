@@ -1643,6 +1643,144 @@ export const dbService = {
       const data = await res.json();
       return data.submissions || [];
     }
+  },
+
+  // -----------------------------------------------------------------------
+  // WISHLIST (Neon PostgreSQL + Drizzle ORM)
+  // -----------------------------------------------------------------------
+  async ensureWishlistTableExists(): Promise<void> {
+    if (typeof window === 'undefined') {
+      try {
+        const { db } = await import('@/db');
+        const { sql } = await import('drizzle-orm');
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS wishlist (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id TEXT NOT NULL,
+            product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            CONSTRAINT wishlist_user_product_unique UNIQUE(user_id, product_id)
+          );
+          CREATE INDEX IF NOT EXISTS wishlist_user_id_idx ON wishlist(user_id);
+          CREATE INDEX IF NOT EXISTS wishlist_product_id_idx ON wishlist(product_id);
+          
+          ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS last_reminder_sent_at TIMESTAMP WITH TIME ZONE;
+          ALTER TABLE wishlist ADD COLUMN IF NOT EXISTS reminder_count INTEGER NOT NULL DEFAULT 0;
+
+          CREATE TABLE IF NOT EXISTS wishlist_campaigns (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            campaign_name TEXT NOT NULL,
+            email_type TEXT NOT NULL,
+            recipient_count INTEGER NOT NULL DEFAULT 0,
+            subject TEXT NOT NULL,
+            sent_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            created_by TEXT
+          );
+        `);
+      } catch (err) {
+        console.warn('[Wishlist] Table creation notice:', err);
+      }
+    }
+  },
+
+  async getUserWishlistProducts(userId: string): Promise<Product[]> {
+    if (typeof window === 'undefined') {
+      await this.ensureWishlistTableExists();
+      const { db } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { eq, desc } = await import('drizzle-orm');
+
+      const wishlistRows = await db
+        .select({ productId: schema.wishlist.product_id })
+        .from(schema.wishlist)
+        .where(eq(schema.wishlist.user_id, userId))
+        .orderBy(desc(schema.wishlist.created_at));
+
+      if (wishlistRows.length === 0) return [];
+
+      const productIds = wishlistRows.map((r: any) => r.productId);
+      const allProducts = await this.getProducts();
+      const productMap = new Map(allProducts.map((p) => [p.id, p]));
+      
+      const result: Product[] = [];
+      for (const id of productIds) {
+        const found = productMap.get(id);
+        if (found) result.push(found);
+      }
+      return result;
+    } else {
+      const res = await fetch('/api/wishlist');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.products || [];
+    }
+  },
+
+  async getUserWishlistProductIds(userId: string): Promise<string[]> {
+    if (typeof window === 'undefined') {
+      await this.ensureWishlistTableExists();
+      const { db } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { eq, desc } = await import('drizzle-orm');
+
+      const wishlistRows = await db
+        .select({ productId: schema.wishlist.product_id })
+        .from(schema.wishlist)
+        .where(eq(schema.wishlist.user_id, userId))
+        .orderBy(desc(schema.wishlist.created_at));
+
+      return wishlistRows.map((r: any) => r.productId);
+    } else {
+      const res = await fetch('/api/wishlist?idsOnly=true');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.productIds || [];
+    }
+  },
+
+  async addToWishlist(userId: string, productId: string): Promise<boolean> {
+    if (typeof window === 'undefined') {
+      await this.ensureWishlistTableExists();
+      const { db } = await import('@/db');
+      const schema = await import('@/db/schema');
+      
+      await db
+        .insert(schema.wishlist)
+        .values({
+          user_id: userId,
+          product_id: productId,
+        })
+        .onConflictDoNothing();
+      return true;
+    } else {
+      const res = await fetch('/api/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId }),
+      });
+      return res.ok;
+    }
+  },
+
+  async removeFromWishlist(userId: string, productId: string): Promise<boolean> {
+    if (typeof window === 'undefined') {
+      await this.ensureWishlistTableExists();
+      const { db } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { and, eq } = await import('drizzle-orm');
+
+      await db
+        .delete(schema.wishlist)
+        .where(and(eq(schema.wishlist.user_id, userId), eq(schema.wishlist.product_id, productId)));
+      return true;
+    } else {
+      const res = await fetch('/api/wishlist', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId }),
+      });
+      return res.ok;
+    }
   }
 };
 
