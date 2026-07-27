@@ -288,8 +288,14 @@ export default function CategoryForm({ initialData, mode }: CategoryFormProps) {
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex justify-end p-2">
                     <button
                       type="button"
-                      onClick={() => setImageUrl('')}
-                      className="p-2 h-max bg-brand-black/80 hover:bg-zinc-850 text-zinc-400 hover:text-white rounded transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setImageUrl('');
+                        addToast('Category image removed', 'info');
+                      }}
+                      className="p-2 h-max bg-brand-black/80 hover:bg-red-600 text-zinc-400 hover:text-white rounded transition-colors cursor-pointer"
+                      title="Delete Image"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

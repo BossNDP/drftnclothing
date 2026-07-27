@@ -1936,13 +1936,12 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                           className={`relative aspect-[3/4] bg-zinc-50 border border-zinc-200 group rounded-md overflow-hidden cursor-move transition-all duration-300 ${
                             draggedIndex === idx ? 'opacity-40 scale-95 border-zinc-900' : ''
                           } ${isDragTarget ? 'hover:border-zinc-400' : ''}`}
-                          onClick={() => makePrimary(idx)}
                         >
                           <img src={url} alt={`preview-${idx}`} className="w-full h-full object-cover select-none pointer-events-none hover:opacity-90 transition-opacity" />
                           
                           {/* Top-left Indicator (Cover status) */}
                           {idx === 0 && (
-                            <div className="absolute top-2 left-2 bg-zinc-900 text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase tracking-wider shadow">
+                            <div className="absolute top-2 left-2 bg-zinc-900 text-white text-[9px] font-bold px-1.5 py-0.5 rounded font-mono uppercase tracking-wider shadow pointer-events-none">
                               Cover
                             </div>
                           )}
@@ -1952,8 +1951,12 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                             <div className="flex justify-end gap-1.5">
                               <button
                                 type="button"
-                                onClick={() => removeImage(idx)}
-                                className="p-1.5 bg-brand-black/80 hover:bg-brand-red text-zinc-400 hover:text-white rounded transition-colors"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  removeImage(idx);
+                                }}
+                                className="p-1.5 bg-brand-black/80 hover:bg-brand-red text-zinc-400 hover:text-white rounded transition-colors cursor-pointer"
                                 title="Delete Image"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -1963,8 +1966,12 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                             <div className="flex items-center justify-between text-[10px] font-bold text-zinc-400">
                               <button
                                 type="button"
-                                onClick={() => makePrimary(idx)}
-                                className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-[9px] font-bold uppercase tracking-wider ${
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  makePrimary(idx);
+                                }}
+                                className={`flex items-center gap-1 px-1.5 py-1 rounded transition-colors text-[9px] font-bold uppercase tracking-wider cursor-pointer ${
                                   idx === 0
                                     ? 'bg-brand-red text-white'
                                     : 'bg-brand-black/80 hover:bg-brand-offwhite hover:text-brand-black text-zinc-400'
