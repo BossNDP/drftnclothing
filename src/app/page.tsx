@@ -35,7 +35,7 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const [initialProducts, initialCategories] = await Promise.all([
-    dbService.getHomepageProducts(12),
+    dbService.getHomepageProducts(),
     dbService.getCategories(),
   ]);
 

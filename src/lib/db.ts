@@ -526,7 +526,7 @@ export const dbService = {
     if (typeof window === 'undefined') {
       const { dbHttp } = await import('@/db');
       const schema = await import('@/db/schema');
-      const { eq, ne, and, desc } = await import('drizzle-orm');
+      const { eq, ne, and, desc, inArray, asc } = await import('drizzle-orm');
 
       const rawList = await dbHttp
         .select()
@@ -539,25 +539,62 @@ export const dbService = {
         .orderBy(desc(schema.products.created_at))
         .limit(limit);
 
-      return rawList.map((prod: any) => ({
-        id: prod.id,
-        name: prod.name,
-        slug: prod.slug,
-        description: prod.description || '',
-        price: prod.price,
-        base_price: prod.price,
-        compare_price: prod.compare_price || undefined,
-        category: prod.category,
-        subcategory: prod.subcategory || undefined,
-        gender: prod.gender,
-        images: prod.images || [],
-        sizes: prod.sizes,
-        stock_quantity: prod.stock_quantity,
-        is_featured: prod.is_featured,
-        is_active: prod.is_active,
-        weight_grams: prod.weight_grams,
-        created_at: prod.created_at.toISOString(),
-      }));
+      if (rawList.length === 0) return [];
+
+      const pIds = rawList.map((p: any) => p.id);
+      const [allImages, allVariants] = await Promise.all([
+        dbHttp
+          .select()
+          .from(schema.productImages)
+          .where(inArray(schema.productImages.product_id, pIds))
+          .orderBy(asc(schema.productImages.sort_order)),
+        dbHttp
+          .select()
+          .from(schema.productVariants)
+          .where(inArray(schema.productVariants.product_id, pIds))
+          .orderBy(asc(schema.productVariants.created_at)),
+      ]);
+
+      const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
+        if (img.sort_order !== 99) {
+          if (!acc[img.product_id]) acc[img.product_id] = [];
+          acc[img.product_id].push(img.image_url);
+        }
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      const variantsByProductId = allVariants.reduce((acc: Record<string, any[]>, v: any) => {
+        if (!acc[v.product_id]) acc[v.product_id] = [];
+        acc[v.product_id].push(v);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      return rawList.map((prod: any) => {
+        const prodVariants = variantsByProductId[prod.id] || [];
+        const fallbackImgs = (imagesByProductId[prod.id] && imagesByProductId[prod.id].length > 0)
+          ? imagesByProductId[prod.id]
+          : (prodVariants[0]?.images && prodVariants[0].images.length > 0 ? prodVariants[0].images : (prod.images && prod.images.length > 0 ? prod.images : []));
+
+        return {
+          id: prod.id,
+          name: prod.name,
+          slug: prod.slug,
+          description: prod.description || '',
+          price: prod.price,
+          base_price: prod.price,
+          compare_price: prod.compare_price || undefined,
+          category: prod.category,
+          subcategory: prod.subcategory || undefined,
+          gender: prod.gender,
+          images: fallbackImgs,
+          sizes: prod.sizes,
+          stock_quantity: prod.stock_quantity,
+          is_featured: prod.is_featured,
+          is_active: prod.is_active,
+          weight_grams: prod.weight_grams,
+          created_at: prod.created_at ? new Date(prod.created_at).toISOString() : new Date().toISOString(),
+        };
+      });
     } else {
       const res = await fetch(`/api/products?category=${category}&limit=${limit}`);
       if (!res.ok) return [];
@@ -566,40 +603,78 @@ export const dbService = {
     }
   },
 
-  async getHomepageProducts(limit = 12): Promise<Product[]> {
+  async getHomepageProducts(limit?: number): Promise<Product[]> {
     if (typeof window === 'undefined') {
       const { dbHttp } = await import('@/db');
       const schema = await import('@/db/schema');
-      const { eq, desc } = await import('drizzle-orm');
+      const { eq, desc, inArray, asc } = await import('drizzle-orm');
 
-      const rawList = await dbHttp
+      let query = dbHttp
         .select()
         .from(schema.products)
         .where(eq(schema.products.is_active, true))
-        .orderBy(desc(schema.products.is_featured), desc(schema.products.created_at))
-        .limit(limit);
+        .orderBy(desc(schema.products.is_featured), desc(schema.products.created_at));
 
-      return rawList.map((prod: any) => ({
-        id: prod.id,
-        name: prod.name,
-        slug: prod.slug,
-        description: prod.description || '',
-        price: prod.price,
-        base_price: prod.price,
-        compare_price: prod.compare_price || undefined,
-        category: prod.category,
-        subcategory: prod.subcategory || undefined,
-        gender: prod.gender,
-        images: prod.images || [],
-        sizes: prod.sizes,
-        stock_quantity: prod.stock_quantity,
-        is_featured: prod.is_featured,
-        is_active: prod.is_active,
-        weight_grams: prod.weight_grams,
-        created_at: prod.created_at ? new Date(prod.created_at).toISOString() : new Date().toISOString(),
-      }));
+      const rawList = limit ? await query.limit(limit) : await query;
+      if (rawList.length === 0) return [];
+
+      const pIds = rawList.map((p: any) => p.id);
+      const [allImages, allVariants] = await Promise.all([
+        dbHttp
+          .select()
+          .from(schema.productImages)
+          .where(inArray(schema.productImages.product_id, pIds))
+          .orderBy(asc(schema.productImages.sort_order)),
+        dbHttp
+          .select()
+          .from(schema.productVariants)
+          .where(inArray(schema.productVariants.product_id, pIds))
+          .orderBy(asc(schema.productVariants.created_at)),
+      ]);
+
+      const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
+        if (img.sort_order !== 99) {
+          if (!acc[img.product_id]) acc[img.product_id] = [];
+          acc[img.product_id].push(img.image_url);
+        }
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      const variantsByProductId = allVariants.reduce((acc: Record<string, any[]>, v: any) => {
+        if (!acc[v.product_id]) acc[v.product_id] = [];
+        acc[v.product_id].push(v);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      return rawList.map((prod: any) => {
+        const prodVariants = variantsByProductId[prod.id] || [];
+        const fallbackImgs = (imagesByProductId[prod.id] && imagesByProductId[prod.id].length > 0)
+          ? imagesByProductId[prod.id]
+          : (prodVariants[0]?.images && prodVariants[0].images.length > 0 ? prodVariants[0].images : (prod.images && prod.images.length > 0 ? prod.images : []));
+
+        return {
+          id: prod.id,
+          name: prod.name,
+          slug: prod.slug,
+          description: prod.description || '',
+          price: prod.price,
+          base_price: prod.price,
+          compare_price: prod.compare_price || undefined,
+          category: prod.category,
+          subcategory: prod.subcategory || undefined,
+          gender: prod.gender,
+          images: fallbackImgs,
+          sizes: prod.sizes,
+          stock_quantity: prod.stock_quantity,
+          is_featured: prod.is_featured,
+          is_active: prod.is_active,
+          weight_grams: prod.weight_grams,
+          created_at: prod.created_at ? new Date(prod.created_at).toISOString() : new Date().toISOString(),
+        };
+      });
     } else {
-      const res = await fetch(`/api/products?limit=${limit}`);
+      const url = limit ? `/api/products?limit=${limit}` : `/api/products`;
+      const res = await fetch(url);
       if (!res.ok) return [];
       const data = await res.json();
       return data.products || [];

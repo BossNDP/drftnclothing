@@ -293,74 +293,7 @@ export default function ProductGallery({
     setAutoplayProgress(0);
   }, []);
 
-  // ─── Fast Scroll Protected Wheel & Lookbook Stepping ─────────────────────
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (!isDesktop || totalSlides <= 1) return;
 
-    const now = Date.now();
-    const delta = e.deltaY;
-
-    if (Math.abs(delta) < 12) return;
-
-    // Fast scroll protection: enforce 200ms minimum window per step
-    if (now - lastScrollTime.current < 200) {
-      if ((delta > 0 && activeIndex < totalSlides - 1) || (delta < 0 && activeIndex > 0)) {
-        if (e.cancelable) e.preventDefault();
-      }
-      return;
-    }
-
-    if (delta > 0 && activeIndex < totalSlides - 1) {
-      if (e.cancelable) e.preventDefault();
-      lastScrollTime.current = now;
-      resetAutoplayTimer();
-      setActiveIndex((prev) => Math.min(totalSlides - 1, prev + 1));
-    } else if (delta < 0 && activeIndex > 0) {
-      if (e.cancelable) e.preventDefault();
-      lastScrollTime.current = now;
-      resetAutoplayTimer();
-      setActiveIndex((prev) => Math.max(0, prev - 1));
-    }
-  }, [isDesktop, totalSlides, activeIndex, resetAutoplayTimer]);
-
-  // ─── GSAP ScrollTrigger Snap (desktop) with Step Clamping ───────────────
-  useEffect(() => {
-    if (!isDesktop || reducedMotion || !containerRef.current) return;
-
-    let ctx: any = null;
-    const setupGSAP = async () => {
-      const { gsap } = await import('gsap');
-      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
-      gsap.registerPlugin(ScrollTrigger);
-      if (!containerRef.current) return;
-
-      ctx = gsap.context(() => {
-        ScrollTrigger.create({
-          trigger: containerRef.current,
-          start: 'top top+=100',
-          end: 'bottom bottom',
-          snap: {
-            snapTo: 1 / Math.max(1, totalSlides - 1),
-            duration: { min: 0.25, max: 0.45 },
-            delay: 0.05,
-            ease: 'power2.out',
-          },
-          onUpdate: (self) => {
-            const target = Math.round(self.progress * (totalSlides - 1));
-            // Fast scroll protection: step clamp max 1 index per update frame
-            setActiveIndex((prev) => {
-              if (target > prev + 1) return prev + 1;
-              if (target < prev - 1) return prev - 1;
-              return target;
-            });
-          },
-        });
-      }, containerRef);
-    };
-
-    setupGSAP();
-    return () => { if (ctx) ctx.revert(); };
-  }, [isDesktop, reducedMotion, totalSlides]);
 
   // ─── Cinemagraph IntersectionObserver ───────────────────────────────────
   useEffect(() => {
@@ -468,7 +401,6 @@ export default function ProductGallery({
       initial={reducedMotion ? {} : { opacity: 0, y: 14, scale: 0.97 }}
       animate={revealControls}
       ref={containerRef}
-      onWheel={handleWheel}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className="relative w-full flex flex-col md:flex-row items-center justify-center gap-4 select-none mx-auto"
@@ -506,16 +438,13 @@ export default function ProductGallery({
             >
               <Image
                 src={getOptimizedImageUrl(imgUrl, 160)}
-                alt={`${productName} — ${label}`}
+                alt={`${productName} thumbnail ${idx + 1}`}
                 fill
                 sizes="80px"
                 loading="lazy"
                 decoding="async"
                 className="object-cover transform-gpu"
               />
-              <div className={`absolute bottom-0 inset-x-0 py-0.5 text-center text-[8px] font-mono tracking-wider uppercase transition-colors duration-200 ${isSelected ? 'bg-white text-black font-bold' : 'bg-black/70 text-white/80 group-hover:bg-black/90'}`}>
-                {label}
-              </div>
             </motion.button>
           );
         })}

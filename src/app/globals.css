@@ -1144,13 +1144,7 @@ input[type=number] {
   animation: smokeParallax 8s ease-in-out infinite alternate;
 }
 
-/* Custom Cursor Hover Gating */
-@media (hover: hover) and (pointer: fine) {
-  .product-image-hoverable,
-  .product-image-hoverable * {
-    cursor: none !important;
-  }
-}
+
 
 /* ═══════════════════════════════════════════════════
    ULTRA-PREMIUM SMOOTHNESS SYSTEM

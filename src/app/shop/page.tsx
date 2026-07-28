@@ -412,7 +412,7 @@ function ShopContent() {
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
   const [selectedGender, setSelectedGender] = useState<string>('all');
   const [selectedSize, setSelectedSize] = useState<string>('all');
-  const [priceRange, setPriceRange] = useState<number>(3000);
+  const [priceRange, setPriceRange] = useState<number>(10000);
   const [sortBy, setSortBy] = useState<string>('featured');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [isSticky, setIsSticky] = useState(false);
@@ -534,7 +534,7 @@ function ShopContent() {
     setSelectedSubcategory('all');
     setSelectedGender('all');
     setSelectedSize('all');
-    setPriceRange(3000);
+    setPriceRange(10000);
     setSortBy('featured');
     setVisibleCount(12);
     router.push('/shop');
@@ -630,7 +630,7 @@ function ShopContent() {
     selectedSubcategory !== 'all',
     selectedGender !== 'all',
     selectedSize !== 'all',
-    priceRange !== 3000,
+    priceRange !== 10000,
     sortBy !== 'featured',
   ].filter(Boolean).length;
 
@@ -641,7 +641,7 @@ function ShopContent() {
     <div className="w-full flex flex-col">
       {/* ── Page Header ── */}
       <div className="border-b border-brand-graphite bg-brand-black">
-        <div className="max-w-screen-2xl mx-auto px-8 md:px-12 pt-16 pb-12">
+        <div className="max-w-screen-2xl mx-auto px-8 md:px-12 pt-28 md:pt-36 pb-12">
           <span className="eyebrow mb-3 block">The Archive</span>
           <div className="flex items-end justify-between gap-4">
             <h1 className="text-white leading-none font-display uppercase font-black tracking-tighter" style={{ fontSize: 'clamp(3rem, 8vw, 6.5rem)' }}>
@@ -1073,14 +1073,14 @@ function ShopContent() {
               id="mobile-price-range"
               type="range"
               min="500"
-              max="3000"
-              step="100"
+              max="10000"
+              step="500"
               value={priceRange}
               onChange={(e) => setPriceRange(Number(e.target.value))}
               className="w-full accent-brand-amber bg-brand-graphite border-0 h-1 cursor-pointer"
             />
             <div className="flex justify-between text-[10px] text-brand-stone font-bold uppercase tracking-widest">
-              <span>₹500</span><span>₹3000</span>
+              <span>₹500</span><span>₹10,000</span>
             </div>
           </div>
         </div>
