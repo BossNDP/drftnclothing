@@ -60,7 +60,7 @@ const TrustBadges = () => (
   </div>
 );
 
-export default function Footer() {
+export default function Footer({ standalone }: { standalone?: boolean }) {
   const pathname = usePathname();
   const [email, setEmail] = useState('');
   
@@ -117,6 +117,7 @@ export default function Footer() {
   };
 
   if (pathname?.startsWith('/admin')) return null;
+  if (pathname?.startsWith('/shop/') && !standalone) return null;
 
   const toggleAccordion = (sectionName: string) => {
     setActiveAccordion(prev => prev === sectionName ? null : sectionName);
@@ -163,7 +164,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="bg-brand-charcoal border-t border-brand-graphite text-brand-gray text-sm mt-auto pb-6 md:pb-0">
+    <footer className="bg-[#080808] border-t border-zinc-900 text-zinc-300 text-sm mt-auto pb-16 md:pb-0 relative z-20">
       
       {/* ── Main Footer Layout ── */}
       <div className="max-w-screen-2xl mx-auto px-6 md:px-12 py-12 md:py-20 flex flex-col lg:flex-row gap-12 lg:gap-16">
@@ -181,7 +182,7 @@ export default function Footer() {
               />
             </div>
           </Link>
-          <p className="text-brand-stone text-xs leading-relaxed font-body font-light max-w-xs">
+          <p className="text-zinc-400 text-xs leading-relaxed font-body font-light max-w-xs">
             Born in Yelahanka, Bengaluru. Premium, imported streetwear and unisex fashion crafted for those who move with intention.
           </p>
 
@@ -200,7 +201,7 @@ export default function Footer() {
                   href={soc.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-8 h-8 flex items-center justify-center border border-brand-muted hover:border-brand-amber text-brand-gray hover:text-brand-amber transition-colors"
+                  className="w-8 h-8 flex items-center justify-center border border-zinc-800 hover:border-white text-zinc-400 hover:text-white transition-colors rounded"
                   aria-label={`Follow DRFTN on ${soc.label}`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -212,7 +213,7 @@ export default function Footer() {
           {/* Newsletter Box */}
           <div className="space-y-4 pt-2">
             <div className="space-y-2">
-              <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-brand-amber block">Join the Drop List</span>
+              <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-zinc-400 block">Join the Drop List</span>
               <form onSubmit={handleNewsletterSubmit} className="flex max-w-xs" aria-label="Newsletter signup">
                 <input
                   type="email"
@@ -220,11 +221,11 @@ export default function Footer() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="flex-1 px-3 py-2 text-xs bg-zinc-950 border border-brand-graphite text-brand-offwhite placeholder-zinc-600 focus:border-white focus:outline-none font-mono"
+                  className="flex-1 px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 text-white placeholder-zinc-500 focus:border-white focus:outline-none font-mono rounded-l"
                 />
                 <button
                   type="submit"
-                  className="bg-white hover:bg-zinc-200 text-black px-3 flex items-center justify-center transition-colors cursor-pointer"
+                  className="bg-white hover:bg-zinc-200 text-black px-3 flex items-center justify-center transition-colors cursor-pointer rounded-r"
                   aria-label="Subscribe"
                 >
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -233,10 +234,10 @@ export default function Footer() {
             </div>
 
             {/* Browser Push alerts section */}
-            <div className="pt-4 border-t border-brand-graphite/40 space-y-2">
-              <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-brand-stone block">Browser Alerts</span>
+            <div className="pt-4 border-t border-zinc-900 space-y-2">
+              <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-zinc-400 block">Browser Alerts</span>
               {subscribed === 'unsupported' ? (
-                <span className="text-[10px] text-zinc-650 uppercase font-mono tracking-widest block">Alerts not supported</span>
+                <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-widest block">Alerts not supported</span>
               ) : subscribed ? (
                 <div className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-bold uppercase tracking-wider font-mono">
                   <CheckCircle className="w-4 h-4 shrink-0" /> You&apos;re Subscribed
@@ -244,7 +245,7 @@ export default function Footer() {
               ) : (
                 <button
                   onClick={handleSubscribe}
-                  className="w-full max-w-xs bg-zinc-950 border border-brand-graphite hover:border-white text-white py-2.5 px-4 text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 cursor-pointer font-mono"
+                  className="w-full max-w-xs bg-zinc-950 border border-zinc-800 hover:border-white text-white py-2.5 px-4 text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2 cursor-pointer font-mono rounded"
                 >
                   <Bell className="w-3.5 h-3.5" /> Enable Notifications
                 </button>
@@ -262,15 +263,15 @@ export default function Footer() {
               onClick={() => toggleAccordion('shop')}
               className="flex justify-between items-center w-full md:cursor-default text-left md:block border-b border-zinc-900 md:border-none pb-2 md:pb-0"
             >
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-offwhite font-body">Shop</h2>
-              <span className="md:hidden">
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-white font-body">Shop</h2>
+              <span className="md:hidden text-white">
                 {activeAccordion === 'shop' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </span>
             </button>
             <ul className={`space-y-2.5 md:block ${activeAccordion === 'shop' ? 'block' : 'hidden'}`}>
               {shopLinks.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-xs text-brand-stone hover:text-brand-offwhite transition-colors tracking-wide font-body">
+                  <Link href={link.href} className="text-xs text-zinc-400 hover:text-white transition-colors tracking-wide font-body">
                     {link.label}
                   </Link>
                 </li>
@@ -284,15 +285,15 @@ export default function Footer() {
               onClick={() => toggleAccordion('customer')}
               className="flex justify-between items-center w-full md:cursor-default text-left md:block border-b border-zinc-900 md:border-none pb-2 md:pb-0"
             >
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-offwhite font-body">Customer Care</h2>
-              <span className="md:hidden">
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-white font-body">Customer Care</h2>
+              <span className="md:hidden text-white">
                 {activeAccordion === 'customer' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </span>
             </button>
             <ul className={`space-y-2.5 md:block ${activeAccordion === 'customer' ? 'block' : 'hidden'}`}>
               {customerLinks.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-xs text-brand-stone hover:text-brand-offwhite transition-colors tracking-wide font-body">
+                  <Link href={link.href} className="text-xs text-zinc-400 hover:text-white transition-colors tracking-wide font-body">
                     {link.label}
                   </Link>
                 </li>
@@ -306,15 +307,15 @@ export default function Footer() {
               onClick={() => toggleAccordion('company')}
               className="flex justify-between items-center w-full md:cursor-default text-left md:block border-b border-zinc-900 md:border-none pb-2 md:pb-0"
             >
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-offwhite font-body">Company</h2>
-              <span className="md:hidden">
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-white font-body">Company</h2>
+              <span className="md:hidden text-white">
                 {activeAccordion === 'company' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </span>
             </button>
             <ul className={`space-y-2.5 md:block ${activeAccordion === 'company' ? 'block' : 'hidden'}`}>
               {companyLinks.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-xs text-brand-stone hover:text-brand-offwhite transition-colors tracking-wide font-body">
+                  <Link href={link.href} className="text-xs text-zinc-400 hover:text-white transition-colors tracking-wide font-body">
                     {link.label}
                   </Link>
                 </li>
@@ -328,15 +329,15 @@ export default function Footer() {
               onClick={() => toggleAccordion('legal')}
               className="flex justify-between items-center w-full md:cursor-default text-left md:block border-b border-zinc-900 md:border-none pb-2 md:pb-0"
             >
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-brand-offwhite font-body">Legal</h2>
-              <span className="md:hidden">
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.25em] text-white font-body">Legal</h2>
+              <span className="md:hidden text-white">
                 {activeAccordion === 'legal' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </span>
             </button>
             <ul className={`space-y-2.5 md:block ${activeAccordion === 'legal' ? 'block' : 'hidden'}`}>
               {legalLinks.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-xs text-brand-stone hover:text-brand-offwhite transition-colors tracking-wide font-body">
+                  <Link href={link.href} className="text-xs text-zinc-400 hover:text-white transition-colors tracking-wide font-body">
                     {link.label}
                   </Link>
                 </li>
@@ -348,7 +349,7 @@ export default function Footer() {
       </div>
 
       {/* ── Bottom Bar ── */}
-      <div className="border-t border-brand-graphite bg-zinc-950/20 py-8 px-6 md:px-12">
+      <div className="border-t border-zinc-900 bg-zinc-950/60 py-8 px-6 md:px-12">
         <div className="max-w-screen-2xl mx-auto flex flex-col gap-6">
           
           {/* Trust and Payment rows */}
@@ -358,18 +359,18 @@ export default function Footer() {
           </div>
           
           {/* Copyright, legal disclaimer & credits */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] text-zinc-550 font-mono tracking-wider">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] text-zinc-400 font-mono tracking-wider">
             <p>
               © {new Date().getFullYear()} DRFTN CLOTHING. All rights reserved.
             </p>
             <div className="flex items-center gap-4 flex-wrap">
-              <Link href="/policies/terms-and-conditions" className="hover:text-brand-offwhite transition-colors">TERMS</Link>
+              <Link href="/policies/terms-and-conditions" className="hover:text-white transition-colors">TERMS</Link>
               <span>|</span>
-              <Link href="/policies/privacy-policy" className="hover:text-brand-offwhite transition-colors">PRIVACY</Link>
+              <Link href="/policies/privacy-policy" className="hover:text-white transition-colors">PRIVACY</Link>
               <span>|</span>
-              <Link href="/sitemap.xml" className="hover:text-brand-offwhite transition-colors">SITEMAP</Link>
+              <Link href="/sitemap.xml" className="hover:text-white transition-colors">SITEMAP</Link>
             </div>
-            <p className="uppercase tracking-widest text-[9px] text-zinc-600">
+            <p className="uppercase tracking-widest text-[9px] text-zinc-500">
               Made in Bengaluru · GSTIN: 29XXXXXXXXXX1ZX
             </p>
           </div>

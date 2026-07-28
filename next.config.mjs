@@ -5,7 +5,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['onnxruntime-web', '@imgly/background-removal'],
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 31536000,

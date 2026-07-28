@@ -46,13 +46,6 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
 
     // Configure GSAP & ScrollTrigger settings
     gsap.registerPlugin(ScrollTrigger);
-    gsap.ticker.lagSmoothing(500, 33);
-    
-    try {
-      ScrollTrigger.normalizeScroll(true);
-    } catch (e) {
-      console.warn('ScrollTrigger normalizeScroll notice:', e);
-    }
 
     const containerEl = containerRef.current;
     const pinnedEl = pinnedRef.current;
@@ -76,13 +69,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         );
       }
 
-      // Subheading Label Fade
+      // Subheading Label Fade & Subtle Motion
       if (subheadingRef.current) {
         entranceTl.fromTo(
           subheadingRef.current,
-          { opacity: 0, y: 10 },
-          { opacity: 1, y: 0, duration: 0.5 },
-          0.3
+          { opacity: 0.85, y: 6 },
+          { opacity: 1, y: 0, duration: 0.4 },
+          0.1
         );
       }
 
@@ -90,9 +83,9 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
       if (headlineBlockRef.current) {
         entranceTl.fromTo(
           headlineBlockRef.current,
-          { opacity: 0, y: 15 },
-          { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' },
-          0.4
+          { opacity: 0.9, y: 8 },
+          { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' },
+          0.15
         );
       }
 
@@ -151,12 +144,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             hoodieDarkEl.style.setProperty('--material-progress', `${matProgress}%`);
           }
 
-          // Scroll-Driven Ambient Light Sweep Layer (20%, 20%) -> (80%, 60%)
+          // Scroll-Driven Ambient Light Sweep — position-only update (GPU-composited, no repaint)
           if (lightSweepRef.current && Math.abs(p - lastLightPRef.current) > 0.005) {
             lastLightPRef.current = p;
-            const lightX = Math.round((20 + p * 60) * 10) / 10;
-            const lightY = Math.round((20 + p * 40) * 10) / 10;
-            lightSweepRef.current.style.background = `radial-gradient(circle at ${lightX}% ${lightY}%, rgba(255,255,255,0.85) 0%, transparent 60%)`;
+            // Move the pre-baked radial gradient using transform instead of repainting background
+            const lightX = Math.round((p * 60) * 10) / 10;
+            const lightY = Math.round((p * 40) * 10) / 10;
+            gsap.set(lightSweepRef.current, { xPercent: lightX, yPercent: lightY });
           }
 
           // Progress Indicator Dots Highlight (Guarded: runs ONLY when crossing 0.45 threshold)
@@ -319,12 +313,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             {/* Background image (bg.png) behind hoodie — dimmed for maximum text & garment contrast */}
             <div className="absolute inset-0 w-full h-full pointer-events-none z-0">
               <Image
-                src="/bg.png"
+                src="/bg.jpg"
                 alt="Hero Background"
                 fill
                 priority
                 fetchPriority="high"
-                quality={90}
+                sizes="100vw"
+                quality={75}
                 className="object-cover object-center brightness-[0.55] contrast-[1.05]"
               />
               <div className="absolute inset-0 bg-black/40" />
@@ -398,12 +393,13 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
               </div>
             </div>
 
-            {/* Scroll-Driven Ambient Light Sweep Glint Overlay (z-14) */}
+            {/* Scroll-Driven Ambient Light Sweep Glint Overlay (z-14) — fixed gradient, position-only animation */}
             <div
               ref={lightSweepRef}
-              className="absolute inset-0 pointer-events-none z-14 opacity-[0.11] mix-blend-overlay transition-transform duration-75"
+              className="absolute w-[200%] h-[200%] -top-1/2 -left-1/2 pointer-events-none z-14 opacity-[0.11] mix-blend-overlay transform-gpu"
               style={{
-                background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.85) 0%, transparent 60%)',
+                background: 'radial-gradient(circle at 50% 50%, rgba(255,255,255,0.85) 0%, transparent 45%)',
+                willChange: 'transform',
               }}
               aria-hidden="true"
             />
@@ -440,7 +436,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             className="absolute z-30 left-6 right-6 md:left-[7vw] md:right-auto bottom-[calc(80px+env(safe-area-inset-bottom))] md:bottom-[10vh] md:max-w-xl flex flex-col items-start text-left space-y-3 md:space-y-4 pointer-events-auto"
           >
             {/* Subheading Label with Explicit Margin Clearance (mb-3 md:mb-5) */}
-            <div ref={subheadingRef} className="flex flex-col items-start space-y-1 mb-3 md:mb-5 opacity-0 w-full">
+            <div ref={subheadingRef} className="flex flex-col items-start space-y-1 mb-3 md:mb-5 w-full">
               <span className="text-[11px] md:text-[13px] font-mono font-bold tracking-[0.15em] uppercase text-white/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
                 HEAVYWEIGHT D2C STREETWEAR • BORN IN YELAHANKA
               </span>
@@ -449,7 +445,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             {/* Oversized Headline with Soft Feathered Dark Radial Vignette Pool (NO box, NO straight lines, NO corners) */}
             <div
               ref={headlineBlockRef}
-              className="headline-wrap relative flex flex-col space-y-0 text-left select-none opacity-0"
+              className="headline-wrap relative flex flex-col space-y-0 text-left select-none"
             >
               {/* Soft radial dark pool extending beyond text bounds, fading out 100% to transparent before any edge */}
               <div

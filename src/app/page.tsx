@@ -1,6 +1,9 @@
 // Server component — exports metadata and renders the client page
 import type { Metadata } from 'next';
 import HomePageClient from './_HomePageClient';
+import { dbService } from '@/lib/db';
+
+export const revalidate = 180;
 
 export const metadata: Metadata = {
   title: 'DRFTN CLOTHING — Built Different | Premium Streetwear Bengaluru',
@@ -30,6 +33,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
-  return <HomePageClient />;
+export default async function HomePage() {
+  const [initialProducts, initialCategories] = await Promise.all([
+    dbService.getHomepageProducts(12),
+    dbService.getCategories(),
+  ]);
+
+  return (
+    <HomePageClient
+      initialProducts={initialProducts}
+      initialCategories={initialCategories}
+    />
+  );
 }

@@ -1,5 +1,6 @@
-import { Pool as NeonPool } from '@neondatabase/serverless';
-import { drizzle as drizzleNeon } from 'drizzle-orm/neon-serverless';
+import { Pool as NeonPool, neon } from '@neondatabase/serverless';
+import { drizzle as drizzleNeonPool } from 'drizzle-orm/neon-serverless';
+import { drizzle as drizzleNeonHttp } from 'drizzle-orm/neon-http';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import { Pool as PgPool } from 'pg';
 import * as schema from './schema';
@@ -14,7 +15,12 @@ const isNeon = databaseUrl.includes('neon.tech');
 // Connect using Neon Serverless WebSocket pool driver to support database transactions,
 // otherwise fall back to standard PostgreSQL Pool
 export const db = isNeon
-  ? drizzleNeon(new NeonPool({ connectionString: databaseUrl }), { schema })
+  ? drizzleNeonPool(new NeonPool({ connectionString: databaseUrl }), { schema })
   : (drizzlePg(new PgPool({ connectionString: databaseUrl }), { schema }) as any);
+
+// Stateless HTTP driver for single-query serverless reads (zero WebSocket handshake cold-start)
+export const dbHttp = isNeon
+  ? drizzleNeonHttp(neon(databaseUrl), { schema })
+  : db;
 
 export type DbClient = typeof db;

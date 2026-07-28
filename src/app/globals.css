@@ -927,7 +927,7 @@ input[type=number] {
 
 .hero-masked-word {
   display: inline-block;
-  will-change: clip-path;
+  will-change: transform;
 }
 
 /* Drift Line Redesign Animations & Keyframes */
@@ -953,11 +953,13 @@ input[type=number] {
 
 @keyframes heroResolve {
   0% {
-    filter: blur(12px) scale(1.05);
+    opacity: 0;
+    transform: scale(1.05);
   }
 
   100% {
-    filter: blur(0px) scale(1);
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -1111,15 +1113,15 @@ input[type=number] {
 }
 
 @keyframes neonFlicker {
-  0%, 1.2%, 2.4%, 3.6%, 4.8%, 100% {
-    filter: brightness(0.8) contrast(1.1) grayscale(1);
-  }
-  0.6%, 1.8%, 3.0%, 4.2% {
-    filter: brightness(1.25) contrast(1.15) grayscale(1);
-  }
+  /* Opacity-only flicker — GPU-composited, no filter repaint on every frame */
+  0%, 2.4%, 4.8%, 100% { opacity: 0.9; }
+  0.6%, 3.0% { opacity: 1; }
+  1.8%, 4.2% { opacity: 0.75; }
 }
 
 .animate-neon-flicker {
+  /* Static filter set once — never animated — Safari doesn't repaint per-frame */
+  filter: grayscale(1) contrast(1.1) brightness(0.85);
   animation: neonFlicker 8s infinite linear;
 }
 

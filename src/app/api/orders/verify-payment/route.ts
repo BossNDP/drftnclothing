@@ -10,6 +10,7 @@ import { verifyToken } from '@/lib/jwt';
 import { sendRefundEmail, sendOrderSuccessEmail, sendDepositConfirmationEmail } from '@/lib/email';
 import { firestoreService } from '@/lib/firestore';
 import { confirmAndWriteOrder } from '@/lib/order-db-helper';
+import { notifyAdminOfNewOrder } from '@/lib/push';
 
 const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
 
@@ -172,7 +173,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Order processing failed' }, { status: 500 });
     }
 
-    // 6. Fire Make.com WhatsApp Webhook (Fire-and-forget)
+    // 6. Fire admin order push notification (fire-and-forget — must never block checkout response)
+    notifyAdminOfNewOrder({
+      id: confirmedOrder.id,
+      order_number: confirmedOrder.order_number,
+      customer_name: confirmedOrder.customer_name,
+      items: (confirmedOrder.items as any[]).map((i) => ({ name: i.name, quantity: i.quantity })),
+      total: confirmedOrder.total,
+      payment_type: confirmedOrder.payment_type,
+    }).catch((err) => console.error('[verify-payment] Admin order push notification failed:', err));
+
+    // 7. Fire Make.com WhatsApp Webhook (Fire-and-forget)
     if (MAKE_WHATSAPP_WEBHOOK && MAKE_WHATSAPP_WEBHOOK.startsWith('http')) {
       const itemsList = confirmedOrder.items
         .map((i: any) => `${i.name} (${i.size}) x${i.quantity}`)

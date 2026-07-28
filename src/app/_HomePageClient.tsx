@@ -189,7 +189,7 @@ function StorefrontTile({
 
           {/* Bottom-Left Selective Badge Taxonomy */}
           {badge && (
-            <div className="absolute bottom-3 left-3 z-20 pointer-events-none p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
+            <div className="absolute bottom-3 left-3 z-20 pointer-events-none">
               <span className={`inline-flex items-center gap-1.5 uppercase ${badge.containerClass}`}>
                 {badge.dotClass && <span className={`w-1.5 h-1.5 rounded-full ${badge.dotClass}`} />}
                 {badge.label}
@@ -200,7 +200,7 @@ function StorefrontTile({
           {/* Discount Badge (Positioned at top-left if present to make room for Wishlist Heart) */}
           {discountPercent !== null && (
             <div className="absolute top-3 left-3 z-20 pointer-events-none">
-              <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-white bg-red-600/90 px-2 py-0.5 uppercase backdrop-blur-sm border border-red-500/40 rounded-sm">
+              <span className="text-[10px] font-mono font-bold tracking-[0.12em] text-white bg-red-600 px-2 py-0.5 uppercase border border-red-500/40 rounded-sm">
                 -{discountPercent}%
               </span>
             </div>
@@ -260,7 +260,7 @@ function StorefrontTile({
                 className={`w-9 h-9 rounded-sm flex items-center justify-center transition-all duration-300 active:scale-85 border shadow-xl ${
                   isAdding
                     ? 'bg-emerald-400 text-black border-emerald-300 scale-110 shadow-[0_0_20px_rgba(52,211,153,0.8)] animate-scale-bounce'
-                    : 'bg-black/80 hover:bg-white hover:text-black text-white border-white/30 backdrop-blur-md hover:scale-105'
+                    : 'bg-black/90 hover:bg-white hover:text-black text-white border-white/30 hover:scale-105'
                 }`}
                 aria-label={`Quick add ${product.name} to cart`}
               >
@@ -358,11 +358,16 @@ const introLetterVariants = {
 /* ──────────────────────────────────────────
    MAIN PAGE — data logic unchanged, layout/styles upgraded
    ────────────────────────────────────────── */
-export default function Homepage() {
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+interface HomePageClientProps {
+  initialProducts?: Product[];
+  initialCategories?: Category[];
+}
+
+export default function Homepage({ initialProducts, initialCategories }: HomePageClientProps = {}) {
+  const [allProducts, setAllProducts] = useState<Product[]>(initialProducts || []);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>(initialProducts?.slice(0, 12) || []);
+  const [categories, setCategories] = useState<Category[]>(initialCategories?.slice(0, 4) || []);
+  const [loading, setLoading] = useState<boolean>(!initialProducts || initialProducts.length === 0);
   const addItem = useCartStore((state) => state.addItem);
   const [showIntro, setShowIntro] = useState(false);
 
@@ -434,11 +439,13 @@ export default function Homepage() {
     return () => ctx.revert();
   }, [showcaseProducts.length]);
 
-  // Load product data
+  // Fallback client-side load product data if initialProducts not supplied
   useEffect(() => {
+    if (initialProducts && initialProducts.length > 0) return;
+
     async function loadData() {
       try {
-        const [prods, cats] = await Promise.all([dbService.getProducts(), dbService.getCategories()]);
+        const [prods, cats] = await Promise.all([dbService.getHomepageProducts(12), dbService.getCategories()]);
         setAllProducts(prods);
         setFeaturedProducts(prods.slice(0, 12));
         setCategories(cats.slice(0, 4));
@@ -449,7 +456,7 @@ export default function Homepage() {
       }
     }
     loadData();
-  }, []);
+  }, [initialProducts]);
 
 
 
@@ -552,14 +559,10 @@ export default function Homepage() {
       >
         {/* Editorial Header */}
         <motion.div
-          initial={{ opacity: 0.3, filter: 'blur(4px)', y: 16 }}
-          whileInView={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-20%' }}
-          transition={{
-            opacity: { type: 'spring', stiffness: 100, damping: 15 },
-            y: { type: 'spring', stiffness: 100, damping: 15 },
-            filter: { duration: 0.5 },
-          }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 md:mb-12 w-full"
         >
           <div className="flex flex-col text-left space-y-1">
@@ -623,24 +626,10 @@ export default function Homepage() {
 
         {/* Text */}
         <motion.div
-          initial={{ opacity: 0.3, filter: 'blur(4px)', y: 16 }}
-          whileInView={{
-            opacity: 1,
-            filter: 'blur(0px)',
-            y: 0,
-            textShadow: [
-              '0 0 0px rgba(255,255,255,0)',
-              '0 0 15px rgba(255,255,255,0.4)',
-              '0 0 0px rgba(255,255,255,0)',
-            ],
-          }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-20%' }}
-          transition={{
-            opacity: { type: 'spring', stiffness: 100, damping: 15 },
-            y: { type: 'spring', stiffness: 100, damping: 15 },
-            filter: { duration: 0.5 },
-            textShadow: { duration: 0.4, delay: 0.35 }
-          }}
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="space-y-8 border-l-2 border-white/10 pl-6 lg:pl-10"
         >
           <div className="relative pl-6 py-2 text-left">
@@ -783,24 +772,10 @@ export default function Homepage() {
         <div className="max-w-screen-2xl mx-auto">
           {/* Header */}
           <motion.div
-            initial={{ opacity: 0.3, filter: 'blur(4px)', y: 16 }}
-            whileInView={{
-              opacity: 1,
-              filter: 'blur(0px)',
-              y: 0,
-              textShadow: [
-                '0 0 0px rgba(255,255,255,0)',
-                '0 0 15px rgba(255,255,255,0.4)',
-                '0 0 0px rgba(255,255,255,0)',
-              ],
-            }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '-20%' }}
-            transition={{
-              opacity: { type: 'spring', stiffness: 100, damping: 15 },
-              y: { type: 'spring', stiffness: 100, damping: 15 },
-              filter: { duration: 0.5 },
-              textShadow: { duration: 0.4, delay: 0.35 }
-            }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
             className="text-center mb-14 space-y-3"
           >
             <span className="block w-6 h-[2px] bg-white mx-auto mb-3" aria-hidden="true" />

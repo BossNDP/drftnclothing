@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { redis } from '@/lib/redis';
+import { dbHttp } from '@/db';
+import * as schema from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,35 +14,50 @@ export async function GET(
 ) {
   const { id } = params;
 
-  // Basic UUID validation
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
     return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
   }
 
   try {
-    // Batch-read all size keys in a single pipeline
+    // 1. Try Redis fast-cache first
     const keys = SIZES.map((s) => `stock:${id}:${s}`);
-    const values = await redis.mget<(string | null)[]>(...keys);
+    const values = await redis.mget<(string | null)[]>(...keys).catch(() => []);
 
     const stock: Record<string, number> = {};
-    SIZES.forEach((size, idx) => {
-      const val = values[idx];
-      if (val !== null) {
-        stock[size] = Math.max(0, Number(val));
-      }
-    });
+    let hasRedisData = false;
+
+    if (Array.isArray(values)) {
+      SIZES.forEach((size, idx) => {
+        const val = values[idx];
+        if (val !== null && val !== undefined) {
+          stock[size] = Math.max(0, Number(val));
+          hasRedisData = true;
+        }
+      });
+    }
+
+    if (hasRedisData) {
+      return NextResponse.json(
+        { stock },
+        { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
+      );
+    }
+
+    // 2. Single indexed query targeting ONLY stock_quantity column for this product ID via dbHttp
+    const [p] = await dbHttp
+      .select({ stock_quantity: schema.products.stock_quantity })
+      .from(schema.products)
+      .where(eq(schema.products.id, id))
+      .limit(1);
+
+    const liveStock = p?.stock_quantity || {};
 
     return NextResponse.json(
-      { stock },
-      {
-        headers: {
-          // Allow client to cache for up to 5 seconds, stale-while-revalidate 10s
-          'Cache-Control': 'public, max-age=5, stale-while-revalidate=10',
-        },
-      }
+      { stock: liveStock },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' } }
     );
   } catch (err) {
-    console.error('[Stock API] Redis read failed:', err);
+    console.error('[Stock API] Live stock read failed:', err);
     return NextResponse.json({ error: 'Failed to fetch stock' }, { status: 500 });
   }
 }

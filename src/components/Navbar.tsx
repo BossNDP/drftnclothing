@@ -212,10 +212,10 @@ export default function Navbar() {
 
             {/* Wishlist Trigger with Heart Burst Animation & Phone Haptic Vibration */}
             <motion.div
-              whileTap={{ scale: 0.75 }}
+              whileTap={{ scale: 0.85 }}
               animate={
                 wishlistPulseActive
-                  ? { scale: [1, 1.45, 0.85, 1.2, 1], rotate: [0, -14, 14, 0] }
+                  ? { scale: [1, 1.3, 0.9, 1.15, 1], rotate: [0, -12, 12, 0] }
                   : { scale: 1 }
               }
               transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -231,21 +231,21 @@ export default function Navbar() {
                     }
                   }
                 }}
-                className="relative flex items-center p-2.5 text-brand-silver hover:text-white transition-colors"
+                className="relative flex items-center justify-center p-2 text-zinc-400 hover:text-white transition-colors group"
                 aria-label={`Wishlist${mounted && wishlistCount > 0 ? `, ${wishlistCount} items` : ''}`}
               >
                 <Heart
-                  className={`w-4.5 h-4.5 stroke-[1.8] transition-all duration-300 ${
+                  className={`w-5 h-5 stroke-[1.8] transition-all duration-300 ${
                     mounted && wishlistCount > 0
-                      ? 'text-pink-500 fill-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.9)]'
-                      : 'hover:text-pink-400'
+                      ? 'text-pink-500 fill-pink-500 filter drop-shadow-[0_0_5px_rgba(236,72,153,0.6)]'
+                      : 'text-zinc-400 group-hover:text-pink-400'
                   }`}
                 />
                 {mounted && wishlistCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute top-1.5 right-1.5 bg-pink-500 text-white text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(236,72,153,0.9)]"
+                    className="absolute -top-0.5 -right-0.5 bg-pink-500 text-white text-[9px] font-bold font-mono h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border border-black shadow-sm"
                     aria-hidden="true"
                   >
                     {wishlistCount}
@@ -257,14 +257,15 @@ export default function Navbar() {
             {/* Cart Trigger */}
             <button
               onClick={() => setIsOpen(true)}
-              className={`relative flex items-center p-2.5 transition-all duration-200 ${cartPulseActive ? 'scale-125 text-white' : 'text-brand-silver hover:text-white'
-                }`}
+              className={`relative flex items-center justify-center p-2 transition-all duration-200 group ${
+                cartPulseActive ? 'scale-125 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
               aria-label={`Open cart${mounted && cartCount > 0 ? `, ${cartCount} items` : ''}`}
             >
-              <ShoppingBag className="w-4.5 h-4.5 stroke-[1.8]" />
+              <ShoppingBag className="w-5 h-5 stroke-[1.8] text-zinc-400 group-hover:text-white transition-colors" />
               {mounted && cartCount > 0 && (
                 <span
-                  className="absolute top-1.5 right-1.5 bg-white text-black text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center animate-scale-in"
+                  className="absolute -top-0.5 -right-0.5 bg-white text-black text-[9px] font-bold font-mono h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center border border-black shadow-sm animate-scale-in"
                   aria-hidden="true"
                 >
                   {cartCount}

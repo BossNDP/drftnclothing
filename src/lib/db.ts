@@ -432,19 +432,11 @@ export const dbService = {
 
   async getProductBySlug(slug: string): Promise<Product | null> {
     if (typeof window === 'undefined') {
-      try {
-        const allProducts = await this.getProducts();
-        const found = allProducts.find((p) => p.slug === slug);
-        if (found) return found;
-      } catch (err) {
-        console.warn('[dbService] getProductBySlug Redis cache lookup skipped:', err);
-      }
-
-      const { db } = await import('@/db');
+      const { dbHttp } = await import('@/db');
       const schema = await import('@/db/schema');
       const { eq, and, asc } = await import('drizzle-orm');
       
-      const [prod] = await db
+      const [prod] = await dbHttp
         .select()
         .from(schema.products)
         .where(and(
@@ -455,17 +447,19 @@ export const dbService = {
       
       if (!prod) return null;
 
-      const productImgs = await db
-        .select()
-        .from(schema.productImages)
-        .where(eq(schema.productImages.product_id, prod.id))
-        .orderBy(asc(schema.productImages.sort_order));
-
-      const rawVariants = await db
-        .select()
-        .from(schema.productVariants)
-        .where(eq(schema.productVariants.product_id, prod.id))
-        .orderBy(asc(schema.productVariants.created_at));
+      // Parallelize image and variant fetches using stateless HTTP neon() connection
+      const [productImgs, rawVariants] = await Promise.all([
+        dbHttp
+          .select()
+          .from(schema.productImages)
+          .where(eq(schema.productImages.product_id, prod.id))
+          .orderBy(asc(schema.productImages.sort_order)),
+        dbHttp
+          .select()
+          .from(schema.productVariants)
+          .where(eq(schema.productVariants.product_id, prod.id))
+          .orderBy(asc(schema.productVariants.created_at)),
+      ]);
 
       const variants = rawVariants.map((v: any) => ({
         id: v.id,
@@ -525,6 +519,90 @@ export const dbService = {
       if (!res.ok) throw new Error('Failed to fetch product');
       const data = await res.json();
       return data.product || null;
+    }
+  },
+
+  async getRelatedProducts(category: string, currentProductId: string, limit = 4): Promise<Product[]> {
+    if (typeof window === 'undefined') {
+      const { dbHttp } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { eq, ne, and, desc } = await import('drizzle-orm');
+
+      const rawList = await dbHttp
+        .select()
+        .from(schema.products)
+        .where(and(
+          eq(schema.products.category, category),
+          ne(schema.products.id, currentProductId),
+          eq(schema.products.is_active, true)
+        ))
+        .orderBy(desc(schema.products.created_at))
+        .limit(limit);
+
+      return rawList.map((prod: any) => ({
+        id: prod.id,
+        name: prod.name,
+        slug: prod.slug,
+        description: prod.description || '',
+        price: prod.price,
+        base_price: prod.price,
+        compare_price: prod.compare_price || undefined,
+        category: prod.category,
+        subcategory: prod.subcategory || undefined,
+        gender: prod.gender,
+        images: prod.images || [],
+        sizes: prod.sizes,
+        stock_quantity: prod.stock_quantity,
+        is_featured: prod.is_featured,
+        is_active: prod.is_active,
+        weight_grams: prod.weight_grams,
+        created_at: prod.created_at.toISOString(),
+      }));
+    } else {
+      const res = await fetch(`/api/products?category=${category}&limit=${limit}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.products || [];
+    }
+  },
+
+  async getHomepageProducts(limit = 12): Promise<Product[]> {
+    if (typeof window === 'undefined') {
+      const { dbHttp } = await import('@/db');
+      const schema = await import('@/db/schema');
+      const { eq, desc } = await import('drizzle-orm');
+
+      const rawList = await dbHttp
+        .select()
+        .from(schema.products)
+        .where(eq(schema.products.is_active, true))
+        .orderBy(desc(schema.products.is_featured), desc(schema.products.created_at))
+        .limit(limit);
+
+      return rawList.map((prod: any) => ({
+        id: prod.id,
+        name: prod.name,
+        slug: prod.slug,
+        description: prod.description || '',
+        price: prod.price,
+        base_price: prod.price,
+        compare_price: prod.compare_price || undefined,
+        category: prod.category,
+        subcategory: prod.subcategory || undefined,
+        gender: prod.gender,
+        images: prod.images || [],
+        sizes: prod.sizes,
+        stock_quantity: prod.stock_quantity,
+        is_featured: prod.is_featured,
+        is_active: prod.is_active,
+        weight_grams: prod.weight_grams,
+        created_at: prod.created_at ? new Date(prod.created_at).toISOString() : new Date().toISOString(),
+      }));
+    } else {
+      const res = await fetch(`/api/products?limit=${limit}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.products || [];
     }
   },
 

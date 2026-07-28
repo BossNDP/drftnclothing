@@ -26,18 +26,23 @@ import {
   Share2,
   Loader2,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { dbService } from '@/lib/db';
 import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import ProductGallery from '@/components/ProductGallery';
-import StickyAddToCartBar from '@/components/StickyAddToCartBar';
-import ShareModal from '@/components/ShareModal';
-import HeartBurstAnimation from '@/components/HeartBurstAnimation';
 import { Product } from '@/types';
 import { useCartStore } from '@/lib/cartStore';
 import { useWishlistStore } from '@/lib/wishlistStore';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { toast } from '@/lib/toast';
 import { ProductDetailSkeleton } from '@/components/Skeletons';
+
+// Dynamic Code-Splitting for Modal & Below-The-Fold Components (Step #2 Bundle Optimization)
+const ProductCard = dynamic(() => import('@/components/ProductCard'), { ssr: false });
+const Footer = dynamic(() => import('@/components/Footer'), { ssr: false });
+const StickyAddToCartBar = dynamic(() => import('@/components/StickyAddToCartBar'), { ssr: false });
+const ShareModal = dynamic(() => import('@/components/ShareModal'), { ssr: false });
+const HeartBurstAnimation = dynamic(() => import('@/components/HeartBurstAnimation'), { ssr: false });
 
 interface ProductDetailPageProps {
   params: {
@@ -306,8 +311,28 @@ export default function ProductDetailClient({
     return () => observer.disconnect();
   }, [loading]);
 
+  // Live stock revalidation on mount to ensure ISR cached page serves fresh inventory
+  const [liveStockMap, setLiveStockMap] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    const fetchStock = () => {
+      fetch(`/api/products/${product.id}/stock`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.stock) setLiveStockMap(data.stock);
+        })
+        .catch(() => {});
+    };
+
+    fetchStock();
+
+    window.addEventListener('drftn-bfcache-restore', fetchStock);
+    return () => window.removeEventListener('drftn-bfcache-restore', fetchStock);
+  }, [product?.id]);
+
   // Stock calculations
-  const currentStockMap = selectedVariant?.stock_quantity ?? product?.stock_quantity ?? {};
+  const currentStockMap = liveStockMap ?? selectedVariant?.stock_quantity ?? product?.stock_quantity ?? {};
   const currentPrice = selectedVariant?.price_override ?? product?.price ?? 0;
   const comparePrice = product?.compare_price;
 
@@ -424,9 +449,20 @@ export default function ProductDetailClient({
       : product.images;
 
   return (
-    <div className="min-h-screen bg-black text-white pt-24 pb-32 sm:pb-36 selection:bg-white selection:text-black lg:bg-[linear-gradient(to_bottom,rgba(0,0,0,0.65),rgba(0,0,0,0.80)),url('/bg.png')] lg:bg-cover lg:bg-center lg:bg-no-repeat lg:bg-fixed">
+    <div className="min-h-screen bg-[#050505] text-white pt-24 pb-12 sm:pb-16 selection:bg-white selection:text-black relative overflow-hidden">
+      {/* ── Premium Matte Background with Subtle Depth (No decorative image artwork) ── */}
+      <div className="fixed inset-0 pointer-events-none z-0" aria-hidden="true">
+        <div className="absolute inset-0 bg-[#050505]" />
+        {/* Subtle radial depth gradient 1 (3.5% opacity) */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_50%_at_20%_20%,rgba(255,255,255,0.035)_0%,rgba(0,0,0,0)_100%)]" />
+        {/* Subtle radial depth gradient 2 (2.5% opacity) */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_80%_80%,rgba(255,255,255,0.025)_0%,rgba(0,0,0,0)_100%)]" />
+        {/* Ultra-light noise texture (1.5% opacity) */}
+        <div className="absolute inset-0 opacity-[0.015] bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+      </div>
+
       {/* ── Breadcrumb Navigation ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6 relative z-10">
         <nav className="flex items-center gap-2 text-xs font-mono text-zinc-400 uppercase tracking-widest bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 w-fit">
           <Link href="/" className="hover:text-white transition-colors">
             Home
@@ -441,7 +477,7 @@ export default function ProductDetailClient({
       </div>
 
       {/* ── Main PDP Split View Container (Centered on Desktop) ── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center relative z-10">
         <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center justify-center">
           {/* ── Left Column: Bespoke Product Gallery (7 cols, Centered) ── */}
           <div ref={galleryWrapperRef} className="lg:col-span-7 w-full flex items-center justify-center mx-auto transition-transform duration-300">
@@ -951,6 +987,34 @@ export default function ProductDetailClient({
         </div>
       </motion.div>
 
+      {/* ── Related Garments Section (You May Also Like) ── */}
+      {initialRelatedProducts && initialRelatedProducts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 pt-16 border-t border-zinc-900/80 relative z-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+            <div>
+              <span className="text-[10px] font-mono font-bold tracking-[0.2em] text-zinc-500 uppercase block mb-1">
+                CURATED RECOMMENDATIONS
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-display font-black uppercase text-white tracking-tight">
+                YOU MAY ALSO LIKE
+              </h2>
+            </div>
+            <Link
+              href="/shop"
+              className="text-xs font-mono text-zinc-400 hover:text-white uppercase tracking-widest underline underline-offset-4 transition-colors w-fit"
+            >
+              View Full Collection →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {initialRelatedProducts.map((relProduct, idx) => (
+              <ProductCard key={relProduct.id} product={relProduct} priority={idx < 2} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── Sticky Add to Bag Bar (Mobile + Desktop Past-Hero Scroll Trigger) ── */}
       <StickyAddToCartBar
         product={product}
@@ -1036,6 +1100,9 @@ export default function ProductDetailClient({
         priceFormatted={priceFormatted}
         imageUrl={displayImages[0]}
       />
+
+      {/* ── Page Footer ── */}
+      <Footer standalone />
     </div>
   );
 }

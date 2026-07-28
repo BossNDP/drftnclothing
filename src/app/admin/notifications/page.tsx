@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Bell, Send, Users, Package, Clock, CheckCircle2, XCircle, AlertCircle, ChevronDown, Smartphone } from 'lucide-react';
+import { Bell, Send, Users, Package, Clock, CheckCircle2, XCircle, AlertCircle, ChevronDown, Smartphone, ShoppingBag } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
 import { dbService } from '@/lib/db';
 import { Product } from '@/types';
@@ -44,6 +44,8 @@ export default function AdminNotificationsPage() {
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission | 'unsupported'>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isOrderAlertEnabled, setIsOrderAlertEnabled] = useState(false);
+  const [isTogglingOrderAlert, setIsTogglingOrderAlert] = useState(false);
 
   // Check browser notification status on mount
   useEffect(() => {
@@ -58,6 +60,8 @@ export default function AdminNotificationsPage() {
       navigator.serviceWorker.ready.then((reg) => {
         reg.pushManager.getSubscription().then((sub) => {
           setIsSubscribed(!!sub);
+          // Order alert is enabled as long as this browser has any active general subscription
+          setIsOrderAlertEnabled(!!sub);
         });
       }).catch(() => {});
     }
@@ -159,6 +163,7 @@ export default function AdminNotificationsPage() {
       window.dispatchEvent(new Event('push-subscription-changed'));
 
       setIsSubscribed(true);
+      setIsOrderAlertEnabled(true);
       addToast('This browser is now subscribed! Subscriber count will update.', 'success');
       await fetchCount();
     } catch (e: any) {
@@ -530,6 +535,90 @@ export default function AdminNotificationsPage() {
             <p className="text-[10px] text-zinc-400 leading-relaxed">
               Use this to test — subscribe here, then send a notification. It will appear as a desktop OS notification in your top-right corner.
             </p>
+          </div>
+
+          {/* Order Alerts Toggle */}
+          <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] p-5 space-y-3">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+              <ShoppingBag className="w-3.5 h-3.5" />
+              Order Alerts
+            </h3>
+
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              Receive an instant push notification on this device every time a new order is placed — including COD pre-orders.
+            </p>
+
+            {browserPermission === 'unsupported' ? (
+              <p className="text-[10px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded p-2">
+                Push notifications are not supported in this browser.
+              </p>
+            ) : browserPermission === 'denied' ? (
+              <p className="text-[10px] text-red-500 bg-red-50 border border-red-100 rounded p-2">
+                Notifications blocked. Go to browser Settings → Privacy → Notifications and allow this site, then reload.
+              </p>
+            ) : isOrderAlertEnabled ? (
+              <>
+                <div className="flex items-center gap-2 text-xs text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  Order alerts active on this device
+                </div>
+                <button
+                  id="admin-order-alerts-toggle"
+                  onClick={async () => {
+                    try {
+                      setIsTogglingOrderAlert(true);
+                      if ('serviceWorker' in navigator) {
+                        const reg = await navigator.serviceWorker.ready;
+                        const sub = await reg.pushManager.getSubscription();
+                        if (sub) {
+                          await fetch('/api/push/unsubscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ endpoint: sub.endpoint }),
+                          });
+                          await sub.unsubscribe();
+                        }
+                      }
+                      localStorage.removeItem('push_alerts_subscribed');
+                      setIsOrderAlertEnabled(false);
+                      setIsSubscribed(false);
+                      addToast('Order alerts disabled for this browser.', 'info');
+                      await fetchCount();
+                    } catch (e: any) {
+                      addToast(e.message || 'Failed to unsubscribe', 'error');
+                    } finally {
+                      setIsTogglingOrderAlert(false);
+                    }
+                  }}
+                  disabled={isTogglingOrderAlert}
+                  className="w-full border border-zinc-300 text-zinc-600 py-2.5 font-bold uppercase tracking-widest text-xs hover:bg-zinc-50 transition-colors rounded-lg flex items-center justify-center gap-2 disabled:opacity-40"
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  {isTogglingOrderAlert ? 'Disabling...' : 'Disable Order Alerts'}
+                </button>
+              </>
+            ) : (
+              <button
+                id="admin-order-alerts-toggle"
+                onClick={async () => {
+                  try {
+                    setIsTogglingOrderAlert(true);
+                    // Reuse the full subscribe flow
+                    await handleSubscribeThisBrowser();
+                    setIsOrderAlertEnabled(true);
+                  } catch (e: any) {
+                    addToast(e.message || 'Failed to enable order alerts', 'error');
+                  } finally {
+                    setIsTogglingOrderAlert(false);
+                  }
+                }}
+                disabled={isTogglingOrderAlert}
+                className="w-full bg-zinc-900 text-white py-2.5 font-bold uppercase tracking-widest text-xs hover:bg-zinc-700 transition-colors rounded-lg flex items-center justify-center gap-2 disabled:opacity-40"
+              >
+                <ShoppingBag className="w-3.5 h-3.5" />
+                {isTogglingOrderAlert ? 'Enabling...' : 'Enable Order Alerts'}
+              </button>
+            )}
           </div>
 
           {/* Tips card */}

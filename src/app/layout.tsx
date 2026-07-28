@@ -1,18 +1,23 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import Script from 'next/script';
+import dynamic from 'next/dynamic';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import MobileNavbar from '@/components/MobileNavbar';
 import MiniCart from '@/components/MiniCart';
-import WhatsAppButton from '@/components/WhatsAppButton';
 import ToastContainer from '@/components/ToastContainer';
 import AddToCartAnimation from '@/components/AddToCartAnimation';
-import PushPrompt from '@/components/PushPrompt';
-import NotificationToast from '@/components/NotificationToast';
 import PageTransition from '@/components/PageTransition';
 import SmoothScrollProvider from '@/components/SmoothScrollProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthSessionProvider } from '@/context/AuthContext';
+
+import BfcacheHandler from '@/components/BfcacheHandler';
+
+const WhatsAppButton = dynamic(() => import('@/components/WhatsAppButton'), { ssr: false });
+const PushPrompt = dynamic(() => import('@/components/PushPrompt'), { ssr: false });
+const NotificationToast = dynamic(() => import('@/components/NotificationToast'), { ssr: false });
 
 export const metadata: Metadata = {
   title: {
@@ -96,11 +101,11 @@ export default function RootLayout({
               }
             `}
           </style>
-          <script
+          <Script
             src="https://cdn.jsdelivr.net/gh/silktide/consent-manager@v2.0.1/silktide-consent-manager.js"
             integrity="sha384-5Pt34uiIbCsvfiiZXoLi4HRf/YBXjr9c8e+gYeVo9smUaInNHYVtc8NZ8wUnXJIq"
             crossOrigin="anonymous"
-            defer
+            strategy="lazyOnload"
           />
           <script
             dangerouslySetInnerHTML={{
@@ -186,6 +191,7 @@ export default function RootLayout({
             }}
           />
           {/* LCP Image High-Priority Speculative Preload */}
+          <link rel="preload" href="/bg.jpg" as="image" fetchPriority="high" />
           <link rel="preload" href="/mobilewhite-mobile.webp" as="image" type="image/webp" fetchPriority="high" media="(max-width: 767px)" />
           <link rel="preload" href="/hero/hoodie-light.webp" as="image" type="image/webp" fetchPriority="high" media="(min-width: 768px)" />
         </head>
@@ -210,6 +216,7 @@ export default function RootLayout({
               <ToastContainer />
               <AddToCartAnimation />
               <PushPrompt />
+              <BfcacheHandler />
               <NotificationToast />
               {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
               <div id="clerk-captcha" />

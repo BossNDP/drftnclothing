@@ -71,7 +71,7 @@ export function getOptimizedImageUrl(url: string | undefined | null, width: numb
       }
     }
 
-    const deliveryParams = `f_auto,q_auto,c_fill,w_${width}`;
+    const deliveryParams = `f_auto,q_auto,fl_progressive,c_fill,w_${width}`;
     return `${baseUrl}/image/upload/${deliveryParams}/${restPath.join('/')}`;
   } catch (error) {
     console.error('Error optimizing Cloudinary image URL:', error);

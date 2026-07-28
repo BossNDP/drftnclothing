@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { Video } from 'lucide-react';
 import { getOptimizedImageUrl, getBlurPlaceholderUrl } from '@/lib/cloudinary';
+import DrftnGalleryIndicator from './DrftnGalleryIndicator';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -55,24 +56,49 @@ function shouldShowShimmer(material?: string | null, description?: string | null
   return SHIMMER_KEYWORDS.some((kw) => haystack.includes(kw));
 }
 
-/** Soft radial accent glow — very subtle, keeps DRFTN identity black */
-function getAccentGlow(color?: string): string {
-  if (!color) return 'transparent';
+/**
+ * Dynamic Ambient Product Glow — 4–6% opacity, large blur radius,
+ * positioned strictly behind gallery area, fading smoothly into matte black #050505 background.
+ */
+function getAmbientGalleryGlow(color?: string): { background: string; filter: string } {
+  if (!color) {
+    return {
+      background: 'radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.015) 50%, transparent 75%)',
+      filter: 'blur(80px)',
+    };
+  }
   const c = color.toLowerCase();
-  if (c.includes('white') || c.includes('cream') || c.includes('ivory') || c.includes('light'))
-    return 'radial-gradient(circle at 50% 60%, rgba(255,252,240,0.09) 0%, transparent 70%)';
-  if (c.includes('navy') || c.includes('blue') || c.includes('indigo'))
-    return 'radial-gradient(circle at 50% 60%, rgba(30,60,180,0.10) 0%, transparent 70%)';
-  if (c.includes('red') || c.includes('crimson') || c.includes('burgundy'))
-    return 'radial-gradient(circle at 50% 60%, rgba(160,20,30,0.09) 0%, transparent 70%)';
-  if (c.includes('green') || c.includes('olive') || c.includes('forest'))
-    return 'radial-gradient(circle at 50% 60%, rgba(20,90,40,0.09) 0%, transparent 70%)';
-  if (c.includes('grey') || c.includes('gray'))
-    return 'radial-gradient(circle at 50% 60%, rgba(80,80,90,0.08) 0%, transparent 70%)';
-  if (c.includes('brown') || c.includes('tan') || c.includes('camel'))
-    return 'radial-gradient(circle at 50% 60%, rgba(100,55,20,0.09) 0%, transparent 70%)';
-  // black / dark
-  return 'radial-gradient(circle at 50% 60%, rgba(80,80,80,0.07) 0%, transparent 70%)';
+  let rgbaCenter = 'rgba(255, 255, 255, 0.05)';
+  let rgbaMid = 'rgba(255, 255, 255, 0.015)';
+
+  if (c.includes('white') || c.includes('cream') || c.includes('ivory') || c.includes('light')) {
+    rgbaCenter = 'rgba(254, 243, 199, 0.05)'; // warm off-white
+    rgbaMid = 'rgba(254, 243, 199, 0.015)';
+  } else if (c.includes('navy') || c.includes('blue') || c.includes('indigo')) {
+    rgbaCenter = 'rgba(59, 130, 246, 0.05)'; // soft blue
+    rgbaMid = 'rgba(59, 130, 246, 0.015)';
+  } else if (c.includes('red') || c.includes('crimson') || c.includes('burgundy')) {
+    rgbaCenter = 'rgba(220, 38, 38, 0.05)'; // soft crimson
+    rgbaMid = 'rgba(220, 38, 38, 0.015)';
+  } else if (c.includes('green') || c.includes('olive') || c.includes('forest')) {
+    rgbaCenter = 'rgba(34, 197, 94, 0.05)'; // soft green
+    rgbaMid = 'rgba(34, 197, 94, 0.015)';
+  } else if (c.includes('grey') || c.includes('gray')) {
+    rgbaCenter = 'rgba(212, 212, 216, 0.05)'; // soft neutral grey
+    rgbaMid = 'rgba(212, 212, 216, 0.015)';
+  } else if (c.includes('brown') || c.includes('tan') || c.includes('camel')) {
+    rgbaCenter = 'rgba(217, 119, 6, 0.05)'; // soft warm brown
+    rgbaMid = 'rgba(217, 119, 6, 0.015)';
+  } else {
+    // black / dark
+    rgbaCenter = 'rgba(255, 255, 255, 0.05)'; // soft neutral white
+    rgbaMid = 'rgba(255, 255, 255, 0.015)';
+  }
+
+  return {
+    background: `radial-gradient(circle at 50% 50%, ${rgbaCenter} 0%, ${rgbaMid} 50%, transparent 75%)`,
+    filter: 'blur(80px)',
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -120,21 +146,6 @@ function HotspotMarker({ hotspot }: { hotspot: ProductHotspot }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
-/**
- * Premium Lookbook Gallery v2 — Luxury Motion Edition
- *
- * Features:
- * 1. Auto Story Gallery — hero → 2nd → 3rd image, then stop (2.5s each)
- * 2. Image Breathing — scale 1→1.015→1 over 14s (imperceptible but alive)
- * 3. Progressive Reveal — 700ms fade+scale on first mount
- * 4. Light Reflection Shimmer — conditional on material (leather/satin/nylon only)
- * 5. Adaptive Radial Glow — soft accent behind product, keeps bg black
- * 6. Motion Blur — blur(1.5px) fade on transition, 120ms
- * 7. Hold to Inspect — long press on mobile zooms to 1.8x
- * 8. Interactive Hotspots — pulsing markers with label tooltips
- * 9. Smart Image Labels — editorial labels instead of dots
- * Performance: tab-visibility pause, reduced-motion respect, memoized slides
- */
 export default function ProductGallery({
   images,
   productName,
@@ -147,22 +158,30 @@ export default function ProductGallery({
 }: ProductGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isDesktop, setIsDesktop] = useState<boolean>(false);
+  const isDesktopRef = useRef<boolean>(false);
   const [reducedMotion, setReducedMotion] = useState<boolean>(false);
   const [isHovered, setIsHovered] = useState<boolean>(false);
-  const [zoomStyle, setZoomStyle] = useState<{ transform: string } | null>(null);
-  const [tiltStyle, setTiltStyle] = useState<{ transform: string } | null>(null);
   const [tabVisible, setTabVisible] = useState<boolean>(true);
 
-  // Feature 7: Hold to Inspect
+  // Mobile Hold to Inspect
   const [holdZoom, setHoldZoom] = useState<boolean>(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Feature 1: Auto Story (stop at 3rd image)
+  // Continuous Auto-Scroll Gallery (Mobile + Desktop)
   const autoplayRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoplayStopped = useRef<boolean>(false);
-  const AUTO_STORY_LIMIT = 3; // show images 0,1,2 then stop
 
-  // Feature 3: Progressive Reveal
+  // Indicator autoplay progress
+  const [autoplayProgress, setAutoplayProgress] = useState<number>(0);
+  const [isAutoplayRunning, setIsAutoplayRunning] = useState<boolean>(true);
+  const autoplayProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoplayStartTimeRef = useRef<number>(Date.now());
+  const AUTOPLAY_DURATION = 3000;
+
+  // Fast scroll protection timer
+  const lastScrollTime = useRef<number>(0);
+
+  // Progressive Reveal
   const revealControls = useAnimation();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -178,9 +197,9 @@ export default function ProductGallery({
     () => shouldShowShimmer(material, description),
     [material, description]
   );
-  const accentGlow = useMemo(() => getAccentGlow(activeVariantColor), [activeVariantColor]);
+  const ambientGlow = useMemo(() => getAmbientGalleryGlow(activeVariantColor), [activeVariantColor]);
 
-  // Smart labels: user-supplied or default editorial labels
+  // Smart editorial labels
   const resolvedLabels = useMemo(() => {
     if (imageLabels && imageLabels.length > 0) return imageLabels;
     const defaults = ['Front', 'Back', 'Side', 'Detail', 'Fit', 'Model'];
@@ -193,9 +212,13 @@ export default function ProductGallery({
     const mediaReduced = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     setIsDesktop(mediaHover.matches);
+    isDesktopRef.current = mediaHover.matches;
     setReducedMotion(mediaReduced.matches);
 
-    const h1 = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    const h1 = (e: MediaQueryListEvent) => {
+      setIsDesktop(e.matches);
+      isDesktopRef.current = e.matches;
+    };
     const h2 = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
 
     mediaHover.addEventListener('change', h1);
@@ -213,7 +236,7 @@ export default function ProductGallery({
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  // ─── Feature 3: Progressive Reveal ──────────────────────────────────────
+  // ─── Progressive Reveal ────────────────────────────────────────────────
   useEffect(() => {
     if (reducedMotion) return;
     revealControls.start({
@@ -224,34 +247,83 @@ export default function ProductGallery({
     });
   }, [reducedMotion, revealControls]);
 
-  // ─── Feature 1: Auto Story Gallery (hero → 2nd → 3rd, stop) ─────────────
+  // ─── Continuous Auto-Scroll Gallery (Mobile + Desktop) ───────────────────
   useEffect(() => {
-    if (reducedMotion || images.length <= 1 || autoplayStopped.current) return;
+    if (reducedMotion || totalSlides <= 1 || isHovered || !tabVisible) {
+      setIsAutoplayRunning(false);
+      setAutoplayProgress(0);
+      return;
+    }
+
+    autoplayStartTimeRef.current = Date.now();
+    setAutoplayProgress(0);
+    setIsAutoplayRunning(true);
+
+    autoplayProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - autoplayStartTimeRef.current;
+      setAutoplayProgress(Math.min(elapsed / AUTOPLAY_DURATION, 1));
+    }, 50);
 
     autoplayRef.current = setInterval(() => {
       setActiveIndex((prev) => {
-        const next = prev + 1;
-        // Stop after AUTO_STORY_LIMIT images
-        if (next >= Math.min(AUTO_STORY_LIMIT, images.length)) {
-          if (autoplayRef.current) clearInterval(autoplayRef.current);
-          autoplayStopped.current = true;
-          return prev;
+        const next = (prev + 1) % totalSlides;
+
+        // On mobile, physically scroll the scroll-snap container to the next slide
+        if (!isDesktopRef.current && mobileScrollRef.current) {
+          mobileScrollRef.current.scrollTo({
+            left: next * mobileScrollRef.current.clientWidth,
+            behavior: 'smooth',
+          });
         }
+
+        autoplayStartTimeRef.current = Date.now();
+        setAutoplayProgress(0);
         return next;
       });
-    }, 2500);
+    }, AUTOPLAY_DURATION);
 
     return () => {
       if (autoplayRef.current) clearInterval(autoplayRef.current);
+      if (autoplayProgressRef.current) clearInterval(autoplayProgressRef.current);
     };
-  }, [reducedMotion, images.length]);
+  }, [reducedMotion, totalSlides, isHovered, tabVisible]);
 
-  const stopAutoplay = useCallback(() => {
-    if (autoplayRef.current) clearInterval(autoplayRef.current);
-    autoplayStopped.current = true;
+  const resetAutoplayTimer = useCallback(() => {
+    autoplayStartTimeRef.current = Date.now();
+    setAutoplayProgress(0);
   }, []);
 
-  // ─── GSAP ScrollTrigger Snap (desktop) ──────────────────────────────────
+  // ─── Fast Scroll Protected Wheel & Lookbook Stepping ─────────────────────
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!isDesktop || totalSlides <= 1) return;
+
+    const now = Date.now();
+    const delta = e.deltaY;
+
+    if (Math.abs(delta) < 12) return;
+
+    // Fast scroll protection: enforce 200ms minimum window per step
+    if (now - lastScrollTime.current < 200) {
+      if ((delta > 0 && activeIndex < totalSlides - 1) || (delta < 0 && activeIndex > 0)) {
+        if (e.cancelable) e.preventDefault();
+      }
+      return;
+    }
+
+    if (delta > 0 && activeIndex < totalSlides - 1) {
+      if (e.cancelable) e.preventDefault();
+      lastScrollTime.current = now;
+      resetAutoplayTimer();
+      setActiveIndex((prev) => Math.min(totalSlides - 1, prev + 1));
+    } else if (delta < 0 && activeIndex > 0) {
+      if (e.cancelable) e.preventDefault();
+      lastScrollTime.current = now;
+      resetAutoplayTimer();
+      setActiveIndex((prev) => Math.max(0, prev - 1));
+    }
+  }, [isDesktop, totalSlides, activeIndex, resetAutoplayTimer]);
+
+  // ─── GSAP ScrollTrigger Snap (desktop) with Step Clamping ───────────────
   useEffect(() => {
     if (!isDesktop || reducedMotion || !containerRef.current) return;
 
@@ -274,8 +346,13 @@ export default function ProductGallery({
             ease: 'power2.out',
           },
           onUpdate: (self) => {
-            const idx = Math.round(self.progress * (totalSlides - 1));
-            setActiveIndex(idx);
+            const target = Math.round(self.progress * (totalSlides - 1));
+            // Fast scroll protection: step clamp max 1 index per update frame
+            setActiveIndex((prev) => {
+              if (target > prev + 1) return prev + 1;
+              if (target < prev - 1) return prev - 1;
+              return target;
+            });
           },
         });
       }, containerRef);
@@ -300,34 +377,14 @@ export default function ProductGallery({
     return () => observer.disconnect();
   }, [cinemagraphUrl]);
 
-  // ─── Cursor Zoom (desktop) ───────────────────────────────────────────────
+  // ─── Desktop Hover State ──────────────────────────────────────────────────
   const handleMouseEnter = useCallback(() => {
-    if (!isDesktop || reducedMotion || !activeImageRef.current) return;
     setIsHovered(true);
-    activeImageRef.current.style.willChange = 'transform';
-  }, [isDesktop, reducedMotion]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (!activeImageRef.current) return;
-    setIsHovered(false);
-    activeImageRef.current.style.willChange = 'auto';
-    setZoomStyle(null);
-    setTiltStyle(null);
   }, []);
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!isDesktop || reducedMotion || !activeImageRef.current) return;
-      const rect = activeImageRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-      const tiltX = (y - 0.5) * -4;
-      const tiltY = (x - 0.5) * 4;
-      setZoomStyle({ transform: `scale(1.8) translate(${(0.5 - x) * 38}%, ${(0.5 - y) * 38}%)` });
-      setTiltStyle({ transform: `perspective(1000px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg)` });
-    },
-    [isDesktop, reducedMotion]
-  );
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
 
   // ─── Mobile Slide Observer ───────────────────────────────────────────────
   useEffect(() => {
@@ -346,7 +403,7 @@ export default function ProductGallery({
   }, [isDesktop, images.length, cinemagraphUrl]);
 
   const scrollToSlide = useCallback((index: number) => {
-    stopAutoplay();
+    resetAutoplayTimer();
     setActiveIndex(index);
     if (mobileScrollRef.current) {
       mobileScrollRef.current.scrollTo({
@@ -354,30 +411,30 @@ export default function ProductGallery({
         behavior: 'smooth',
       });
     }
-  }, [stopAutoplay]);
+  }, [resetAutoplayTimer]);
 
-  // ─── Feature 7: Hold to Inspect (mobile long-press) ─────────────────────
+  // ─── Mobile Hold to Inspect ─────────────────────────────────────────────
   const handleTouchStart = useCallback(() => {
-    stopAutoplay();
+    resetAutoplayTimer();
     holdTimerRef.current = setTimeout(() => {
       setHoldZoom(true);
     }, 400);
-  }, [stopAutoplay]);
+  }, [resetAutoplayTimer]);
 
   const handleTouchEnd = useCallback(() => {
     if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
     setHoldZoom(false);
   }, []);
 
-  // ─── Transition Variants (Feature 6: subtle blur 1.5px) ─────────────────
+  // ─── Cinematic Image Switch Variants (Fade + Scale + Motion Blur under 120ms) ───
   const imageVariants = useMemo(() => ({
-    initial: { opacity: 0, scale: 1.025, filter: 'blur(1.5px)' },
+    initial: { opacity: 0, scale: 1.02, filter: 'blur(1.5px)' },
     animate: {
       opacity: 1,
       scale: 1,
       filter: 'blur(0px)',
       transition: {
-        duration: 0.32,
+        duration: 0.25,
         ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
       },
     },
@@ -385,11 +442,11 @@ export default function ProductGallery({
       opacity: 0,
       scale: 0.985,
       filter: 'blur(1.5px)',
-      transition: { duration: 0.14, ease: [0.4, 0, 1, 1] as [number, number, number, number] },
+      transition: { duration: 0.10, ease: [0.4, 0, 1, 1] as [number, number, number, number] },
     },
   }), []);
 
-  // ─── Feature 2: Breathing (scale 1→1.015→1) ─────────────────────────────
+  // ─── Subtle Breathing Animation ──────────────────────────────────────────
   const breathingAnim = useMemo(() => {
     if (reducedMotion || !tabVisible || isHovered) return { scale: 1 };
     return {
@@ -411,8 +468,21 @@ export default function ProductGallery({
       initial={reducedMotion ? {} : { opacity: 0, y: 14, scale: 0.97 }}
       animate={revealControls}
       ref={containerRef}
+      onWheel={handleWheel}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       className="relative w-full flex flex-col md:flex-row items-center justify-center gap-4 select-none mx-auto"
     >
+      {/* ─── Dynamic Ambient Product Glow (strictly behind gallery area) ─── */}
+      <div
+        className="absolute -inset-10 -z-10 pointer-events-none rounded-full transition-all duration-700 ease-out transform-gpu"
+        style={{
+          background: ambientGlow.background,
+          filter: ambientGlow.filter,
+        }}
+        aria-hidden="true"
+      />
+
       {/* ── Desktop Left Thumbnails Strip ── */}
       <div className="hidden md:flex flex-col gap-3 w-20 shrink-0 sticky top-28 self-start max-h-[80vh] overflow-y-auto scrollbar-none z-10">
         {images.map((imgUrl, idx) => {
@@ -421,16 +491,16 @@ export default function ProductGallery({
           return (
             <motion.button
               key={`thumb-${idx}`}
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() => {
-                stopAutoplay();
+                resetAutoplayTimer();
                 setActiveIndex(idx);
               }}
-              className={`group relative aspect-[3/4] w-full rounded-md overflow-hidden border-2 transition-all duration-200 focus:outline-none ${
+              className={`group relative aspect-[3/4] w-full rounded-md overflow-hidden border-2 transition-colors duration-200 focus:outline-none ${
                 isSelected
                   ? 'border-white ring-1 ring-white shadow-md'
-                  : 'border-zinc-800 opacity-60 hover:opacity-100 hover:border-zinc-500'
+                  : 'border-zinc-800/80 bg-zinc-950/80 opacity-60 hover:opacity-100 hover:border-zinc-500'
               }`}
               aria-label={`View ${label}`}
             >
@@ -439,10 +509,11 @@ export default function ProductGallery({
                 alt={`${productName} — ${label}`}
                 fill
                 sizes="80px"
-                className="object-cover"
+                loading="lazy"
+                decoding="async"
+                className="object-cover transform-gpu"
               />
-              {/* Feature 9: Smart label on thumbnail */}
-              <div className={`absolute bottom-0 inset-x-0 py-0.5 text-center text-[8px] font-mono tracking-wider uppercase transition-all duration-200 ${isSelected ? 'bg-white text-black' : 'bg-black/60 text-white/70 group-hover:bg-black/80'}`}>
+              <div className={`absolute bottom-0 inset-x-0 py-0.5 text-center text-[8px] font-mono tracking-wider uppercase transition-colors duration-200 ${isSelected ? 'bg-white text-black font-bold' : 'bg-black/70 text-white/80 group-hover:bg-black/90'}`}>
                 {label}
               </div>
             </motion.button>
@@ -452,10 +523,10 @@ export default function ProductGallery({
         {/* Cinemagraph Thumbnail */}
         {cinemagraphUrl && (
           <motion.button
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => { stopAutoplay(); setActiveIndex(images.length); }}
-            className={`relative aspect-[3/4] w-full rounded-md overflow-hidden border-2 transition-all duration-200 flex items-center justify-center bg-zinc-900 ${
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => { resetAutoplayTimer(); setActiveIndex(images.length); }}
+            className={`relative aspect-[3/4] w-full rounded-md overflow-hidden border-2 transition-colors duration-200 flex items-center justify-center bg-zinc-950 ${
               activeIndex === images.length
                 ? 'border-white ring-1 ring-white opacity-100'
                 : 'border-zinc-800 opacity-60 hover:opacity-100'
@@ -478,13 +549,7 @@ export default function ProductGallery({
           ref={activeImageRef}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
-          onMouseMove={handleMouseMove}
-          className="hidden md:block relative w-full aspect-[3/4] rounded-lg overflow-hidden shadow-2xl cursor-zoom-in border border-zinc-800/60 bg-zinc-950"
-          style={{
-            ...(tiltStyle ? { transform: tiltStyle.transform } : {}),
-            background: accentGlow || 'rgb(9,9,11)',
-            transition: 'background 0.7s ease, transform 0.1s ease-out',
-          }}
+          className="hidden md:block relative w-full aspect-[3/4] rounded-lg overflow-hidden shadow-2xl border border-zinc-800/60 bg-[#050505]"
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -496,11 +561,8 @@ export default function ProductGallery({
               className="relative w-full h-full"
             >
               {activeIndex < images.length ? (
-                <div
-                  className="relative w-full h-full overflow-hidden"
-                  style={zoomStyle ?? undefined}
-                >
-                  {/* Feature 2: Breathing (only animate active slide) */}
+                <div className="relative w-full h-full overflow-hidden">
+                  {/* Breathing animation */}
                   <motion.div
                     key={`breath-${activeIndex}`}
                     className="relative w-full h-full"
@@ -512,15 +574,17 @@ export default function ProductGallery({
                       fill
                       priority={activeIndex === 0}
                       fetchPriority={activeIndex === 0 ? 'high' : 'auto'}
+                      loading={activeIndex === 0 ? 'eager' : 'lazy'}
+                      decoding="async"
                       sizes="(min-width: 1024px) 50vw, (min-width: 768px) 60vw, 100vw"
-                      quality={90}
+                      quality={85}
                       placeholder="blur"
                       blurDataURL={getBlurPlaceholderUrl(currentImage)}
-                      className="object-cover"
+                      className="object-cover transform-gpu"
                     />
                   </motion.div>
 
-                  {/* Feature 4: Shimmer — conditional on material */}
+                  {/* Shimmer overlay */}
                   {showShimmer && !reducedMotion && tabVisible && (
                     <motion.div
                       className="absolute inset-0 pointer-events-none z-10"
@@ -535,7 +599,7 @@ export default function ProductGallery({
                     />
                   )}
 
-                  {/* Feature 8: Hotspot Markers (hero image only) */}
+                  {/* Hotspot Markers (hero image only) */}
                   {activeIndex === 0 && hotspots.length > 0 && (
                     <div className="absolute inset-0 z-20 pointer-events-none">
                       {hotspots.map((hs, i) => (
@@ -564,27 +628,24 @@ export default function ProductGallery({
             </motion.div>
           </AnimatePresence>
 
-          {/* Feature 9: Current image label (bottom-left editorial badge) */}
-          {activeIndex < images.length && (
-            <motion.div
-              key={`label-${activeIndex}`}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2, delay: 0.1 }}
-              className="absolute bottom-4 left-4 z-20 pointer-events-none"
-            >
-              <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-white/60 bg-black/50 backdrop-blur-sm px-2 py-0.5 rounded">
-                {resolvedLabels[activeIndex]}
-              </span>
-            </motion.div>
-          )}
+          {/* DRFTN Signature Gallery Indicator — Desktop */}
+          <DrftnGalleryIndicator
+            total={totalSlides}
+            activeIndex={activeIndex}
+            accentColor={activeVariantColor}
+            isAutoplayRunning={isAutoplayRunning}
+            autoplayProgress={autoplayProgress}
+            reducedMotion={reducedMotion}
+            onSelect={(idx) => { resetAutoplayTimer(); setActiveIndex(idx); }}
+            galleryRef={containerRef as React.RefObject<HTMLElement | null>}
+          />
         </div>
 
         {/* ─── Mobile Scroll Snap Gallery ─────────────────────────────────── */}
         <div className="md:hidden relative w-full">
           <div
             ref={mobileScrollRef}
-            className="w-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none aspect-[3/4] bg-zinc-950 rounded-lg border border-zinc-800"
+            className="w-full flex overflow-x-auto snap-x snap-mandatory scrollbar-none aspect-[3/4] bg-[#050505] rounded-lg border border-zinc-800"
             style={{ WebkitOverflowScrolling: 'touch' }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
@@ -603,11 +664,13 @@ export default function ProductGallery({
                   fill
                   priority={idx === 0}
                   fetchPriority={idx === 0 ? 'high' : 'low'}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
                   sizes="100vw"
                   quality={80}
                   placeholder="blur"
                   blurDataURL={getBlurPlaceholderUrl(imgUrl)}
-                  className="object-cover"
+                  className="object-cover transform-gpu"
                 />
               </div>
             ))}
@@ -629,7 +692,7 @@ export default function ProductGallery({
             )}
           </div>
 
-          {/* Feature 7: Hold-to-Inspect overlay */}
+          {/* Mobile Hold-to-Inspect overlay */}
           <AnimatePresence>
             {holdZoom && (
               <motion.div
@@ -644,8 +707,8 @@ export default function ProductGallery({
                   alt={`${productName} — inspect`}
                   fill
                   sizes="100vw"
-                  quality={95}
-                  className="object-cover"
+                  quality={90}
+                  className="object-cover transform-gpu"
                   style={{ transform: 'scale(1.8)', transformOrigin: 'center center' }}
                 />
                 <div className="absolute inset-0 ring-2 ring-white/20 rounded-lg" />
@@ -653,27 +716,17 @@ export default function ProductGallery({
             )}
           </AnimatePresence>
 
-          {/* Feature 9: Smart Labels instead of dots */}
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-black/65 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 max-w-[90%] overflow-x-auto scrollbar-none">
-            {Array.from({ length: totalSlides }).map((_, idx) => {
-              const isActive = activeIndex === idx;
-              const lbl = idx < images.length ? resolvedLabels[idx] : 'Motion';
-              return (
-                <button
-                  key={`label-nav-${idx}`}
-                  onClick={() => scrollToSlide(idx)}
-                  className={`shrink-0 font-mono text-[8px] uppercase tracking-wider px-2 py-0.5 rounded transition-all duration-250 ${
-                    isActive
-                      ? 'bg-white text-black font-bold'
-                      : 'text-white/50 hover:text-white/80'
-                  }`}
-                  aria-label={`Go to ${lbl}`}
-                >
-                  {lbl}
-                </button>
-              );
-            })}
-          </div>
+          {/* DRFTN Signature Gallery Indicator — Mobile */}
+          <DrftnGalleryIndicator
+            total={totalSlides}
+            activeIndex={activeIndex}
+            accentColor={activeVariantColor}
+            isAutoplayRunning={isAutoplayRunning}
+            autoplayProgress={autoplayProgress}
+            reducedMotion={reducedMotion}
+            onSelect={scrollToSlide}
+            galleryRef={containerRef as React.RefObject<HTMLElement | null>}
+          />
         </div>
       </div>
     </motion.div>

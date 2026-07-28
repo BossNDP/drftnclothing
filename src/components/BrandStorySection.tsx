@@ -187,10 +187,10 @@ export default function BrandStorySection() {
               <AnimatePresence mode="wait">
                 <motion.span
                   key={CYCLING_WORDS[wordIndex]}
-                  initial={{ opacity: 0, y: 10, filter: 'blur(3px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -10, filter: 'blur(3px)' }}
-                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
                   className="absolute left-0 top-0 text-white underline decoration-white/40 underline-offset-4"
                 >
                   {CYCLING_WORDS[wordIndex]}
