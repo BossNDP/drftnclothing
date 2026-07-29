@@ -20,7 +20,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   const hoodieLightRef = useRef<HTMLDivElement>(null);
   const hoodieDarkRef = useRef<HTMLDivElement>(null);
   const lightSweepRef = useRef<HTMLDivElement>(null);
-  
+
   const textBlockRef = useRef<HTMLDivElement>(null);
   const subheadingRef = useRef<HTMLDivElement>(null);
   const headlineBlockRef = useRef<HTMLDivElement>(null);
@@ -30,7 +30,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
   const primaryCtaRef = useRef<HTMLDivElement>(null);
   const secondaryCtaRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
-  
+
   const dot1Ref = useRef<HTMLDivElement>(null);
   const dot2Ref = useRef<HTMLDivElement>(null);
 

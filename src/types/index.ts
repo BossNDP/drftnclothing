@@ -30,11 +30,13 @@ export interface Product {
   sizes: string[];
   stock_quantity: Record<string, number>; // e.g., { XS: 10, S: 5 }
   is_featured: boolean;
+  paired_with?: string | null;
   is_active: boolean;
   weight_grams: number;
   length_cm?: number | null;
   breadth_cm?: number | null;
   height_cm?: number | null;
+  units_sold?: number;
   created_at?: string;
   variants?: ProductVariant[];
 }

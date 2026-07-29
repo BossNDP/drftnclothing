@@ -126,6 +126,7 @@ export const adminProductSchema = z.object({
   sizes: z.array(SizeEnum).default(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
   stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()).default({ XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 }),
   is_featured: z.boolean().default(false),
+  paired_with: z.string().uuid().optional().nullable(),
   is_active: z.boolean().default(true),
   weight_grams: z.number().int().min(1, 'Product weight is required and must be at least 1g'),
   length_cm: z.number().int().min(1).optional().nullable(),

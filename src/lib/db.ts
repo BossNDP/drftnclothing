@@ -310,11 +310,13 @@ export const dbService = {
           sizes: r.sizes,
           stock_quantity: r.stock_quantity,
           is_featured: r.is_featured,
+          paired_with: r.paired_with ?? null,
           is_active: r.is_active,
           weight_grams: r.weight_grams,
           length_cm: r.length_cm,
           breadth_cm: r.breadth_cm,
           height_cm: r.height_cm,
+          units_sold: r.units_sold ?? 0,
           created_at: r.created_at.toISOString(),
           variants: prodVariants,
         };
@@ -413,6 +415,7 @@ export const dbService = {
           sizes: r.sizes,
           stock_quantity: r.stock_quantity,
           is_featured: r.is_featured,
+          paired_with: r.paired_with ?? null,
           is_active: r.is_active,
           weight_grams: r.weight_grams,
           length_cm: r.length_cm,
@@ -505,6 +508,7 @@ export const dbService = {
         sizes: prod.sizes,
         stock_quantity: prod.stock_quantity,
         is_featured: prod.is_featured,
+        paired_with: prod.paired_with ?? null,
         is_active: prod.is_active,
         weight_grams: prod.weight_grams,
         length_cm: prod.length_cm,
@@ -590,6 +594,7 @@ export const dbService = {
           sizes: prod.sizes,
           stock_quantity: prod.stock_quantity,
           is_featured: prod.is_featured,
+          paired_with: prod.paired_with ?? null,
           is_active: prod.is_active,
           weight_grams: prod.weight_grams,
           created_at: prod.created_at ? new Date(prod.created_at).toISOString() : new Date().toISOString(),
@@ -667,6 +672,7 @@ export const dbService = {
           sizes: prod.sizes,
           stock_quantity: prod.stock_quantity,
           is_featured: prod.is_featured,
+          paired_with: prod.paired_with ?? null,
           is_active: prod.is_active,
           weight_grams: prod.weight_grams,
           created_at: prod.created_at ? new Date(prod.created_at).toISOString() : new Date().toISOString(),
@@ -678,6 +684,102 @@ export const dbService = {
       if (!res.ok) return [];
       const data = await res.json();
       return data.products || [];
+    }
+  },
+
+  async getCategoryThumbnails(): Promise<Record<string, string>> {
+    if (typeof window === 'undefined') {
+      const { unstable_cache } = await import('next/cache');
+      
+      const fetchCachedThumbnails = unstable_cache(
+        async () => {
+          const { dbHttp } = await import('@/db');
+          const schema = await import('@/db/schema');
+          const { eq, desc, inArray, asc } = await import('drizzle-orm');
+
+          // Fetch active products
+          const prods = await dbHttp
+            .select()
+            .from(schema.products)
+            .where(eq(schema.products.is_active, true))
+            .orderBy(desc(schema.products.created_at));
+
+          if (prods.length === 0) return { all: '' };
+
+          // Fetch all images & variants in batch
+          const pIds = prods.map((p: any) => p.id);
+          const [allImages, allVariants] = await Promise.all([
+            dbHttp
+              .select()
+              .from(schema.productImages)
+              .where(inArray(schema.productImages.product_id, pIds))
+              .orderBy(asc(schema.productImages.sort_order)),
+            dbHttp
+              .select()
+              .from(schema.productVariants)
+              .where(inArray(schema.productVariants.product_id, pIds))
+              .orderBy(asc(schema.productVariants.created_at)),
+          ]);
+
+          const imagesByProductId = allImages.reduce((acc: Record<string, string[]>, img: any) => {
+            if (img.sort_order !== 99) {
+              if (!acc[img.product_id]) acc[img.product_id] = [];
+              acc[img.product_id].push(img.image_url);
+            }
+            return acc;
+          }, {} as Record<string, string[]>);
+
+          const variantsByProductId = allVariants.reduce((acc: Record<string, any[]>, v: any) => {
+            if (!acc[v.product_id]) acc[v.product_id] = [];
+            acc[v.product_id].push(v);
+            return acc;
+          }, {} as Record<string, any[]>);
+
+          const getPrimaryImage = (p: any) => {
+            if (imagesByProductId[p.id] && imagesByProductId[p.id].length > 0) {
+              return imagesByProductId[p.id][0];
+            }
+            const pVars = variantsByProductId[p.id] || [];
+            if (pVars[0]?.images && pVars[0].images.length > 0) {
+              return pVars[0].images[0];
+            }
+            if (p.images && p.images.length > 0) {
+              return p.images[0];
+            }
+            return '';
+          };
+
+          const thumbnails: Record<string, string> = {};
+
+          // Select for each category
+          const categories = Array.from(new Set(prods.map((p: any) => p.category)));
+          for (const cat of categories) {
+            const catProds = prods.filter((p: any) => p.category === cat);
+            // Try featured products first, then most recently created active product
+            const featured = catProds.filter((p: any) => p.is_featured);
+            const chosen = featured.length > 0 ? featured[0] : catProds[0];
+            if (cat) {
+              thumbnails[cat as string] = getPrimaryImage(chosen);
+            }
+          }
+
+          // Select overall for 'all' (overall featured, else most recent product image)
+          const overallFeatured = prods.filter((p: any) => p.is_featured);
+          const overallChosen = overallFeatured.length > 0 ? overallFeatured[0] : prods[0];
+          thumbnails['all'] = getPrimaryImage(overallChosen);
+
+          return thumbnails;
+        },
+        ['category-thumbnails-cache-key'],
+        { revalidate: 600, tags: ['category-thumbnails'] }
+      );
+
+      return fetchCachedThumbnails();
+    } else {
+      const res = await fetch('/api/categories/thumbnails');
+      if (!res.ok) return { all: '' };
+      const data = await res.json();
+      return data.thumbnails || { all: '' };
     }
   },
 
@@ -702,6 +804,7 @@ export const dbService = {
           sizes: prod.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
           stock_quantity: prod.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
           is_featured: prod.is_featured !== undefined ? prod.is_featured : false,
+          paired_with: prod.paired_with ?? null,
           is_active: prod.is_active !== undefined ? prod.is_active : true,
           weight_grams: prod.weight_grams,
           length_cm: prod.length_cm || null,
@@ -788,6 +891,7 @@ export const dbService = {
         sizes: inserted.sizes,
         stock_quantity: inserted.stock_quantity,
         is_featured: inserted.is_featured,
+        paired_with: inserted.paired_with ?? null,
         is_active: inserted.is_active,
         weight_grams: inserted.weight_grams,
         length_cm: inserted.length_cm,
@@ -964,6 +1068,7 @@ export const dbService = {
         sizes: updated.sizes,
         stock_quantity: updated.stock_quantity,
         is_featured: updated.is_featured,
+        paired_with: updated.paired_with ?? null,
         is_active: updated.is_active,
         weight_grams: updated.weight_grams,
         length_cm: updated.length_cm,

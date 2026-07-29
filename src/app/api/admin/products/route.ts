@@ -1,6 +1,21 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { dbService } from '@/lib/db';
 import { adminProductSchema } from '@/lib/validations';
+
+/**
+ * Bust all homepage category, featured, and trending caches for a product.
+ * Always revalidate 'products-all', 'featured-products', and 'trending-products'.
+ */
+function bustProductCacheTags(category?: string) {
+  revalidateTag('products-all');
+  revalidateTag('featured-products');
+  revalidateTag('trending-products');
+  if (category) {
+    revalidateTag(`products-${category}`);
+  }
+  console.log(`[revalidateTag] products-all, featured-products, trending-products${category ? `, products-${category}` : ''}`);
+}
 
 /**
  * GET /api/admin/products
@@ -37,6 +52,9 @@ export async function POST(request: Request) {
 
     // Create product via dbService
     const newProduct = await dbService.createProduct(validationResult.data as any);
+
+    // Bust Next.js Data Cache for the new product's category
+    bustProductCacheTags(newProduct.category);
 
     return NextResponse.json({ success: true, product: newProduct });
   } catch (error: any) {
@@ -99,6 +117,13 @@ export async function PATCH(request: Request) {
     // Update product via dbService
     const updatedProduct = await dbService.updateProduct(id, validationResult.data as any);
 
+    // Bust Next.js Data Cache — both new category (if changed) and old (conservative)
+    bustProductCacheTags(updatedProduct.category);
+    // Also bust category from incoming body in case category changed
+    if (validationResult.data.category && validationResult.data.category !== updatedProduct.category) {
+      revalidateTag(`products-${validationResult.data.category}`);
+    }
+
     return NextResponse.json({ success: true, product: updatedProduct });
   } catch (error: any) {
     console.error('Admin products PATCH exception:', error);
@@ -126,6 +151,10 @@ export async function DELETE(request: Request) {
     if (!success) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
+
+    // Bust all category caches conservatively on delete
+    // (we no longer know the category after deletion)
+    bustProductCacheTags();
 
     return NextResponse.json({ success: true });
   } catch (error) {

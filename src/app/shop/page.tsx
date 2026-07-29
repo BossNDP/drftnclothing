@@ -26,7 +26,7 @@ const CATEGORY_VISUALS: Record<string, { label: string; image: string }> = {
   },
   't-shirts': {
     label: 'Tees',
-    image: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=400&h=400&fit=crop&q=80',
+    image: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785153652/drftn-products/jphnwicpbhl6wvrnxkfw.jpg',
   },
   shirts: {
     label: 'Shirts',
@@ -52,6 +52,18 @@ const CATEGORY_VISUALS: Record<string, { label: string; image: string }> = {
     label: 'Jackets',
     image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop&q=80',
   },
+};
+
+/**
+ * CATEGORY IMAGE OVERRIDES
+ * Add or edit entries here to pin a specific image to any category circle.
+ * These take PRIORITY over both the database image_url and auto-selected thumbnails.
+ * Format: { 'category-slug': 'full-image-url' }
+ */
+const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
+  't-shirts': 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785153652/drftn-products/jphnwicpbhl6wvrnxkfw.jpg',
+  // Add more overrides here as needed, e.g.:
+  // 'hoodies': 'https://res.cloudinary.com/...',
 };
 
 // Suspense boundary for search params
@@ -404,6 +416,7 @@ function ShopContent() {
   const [quickAddEvent, setQuickAddEvent] = useState<React.MouseEvent | null>(null);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [categoriesList, setCategoriesList] = useState<Category[]>([]);
+  const [categoryThumbnails, setCategoryThumbnails] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(12);
 
@@ -466,17 +479,19 @@ function ShopContent() {
     setSelectedSubcategory(subcat || 'all');
   }, [searchParams]);
 
-  // Fetch products & categories — dynamic database load
+  // Fetch products, categories & thumbnails — dynamic database load
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true);
-        const [prods, cats] = await Promise.all([
+        const [prods, cats, thumbs] = await Promise.all([
           dbService.getProducts(),
-          dbService.getCategories()
+          dbService.getCategories(),
+          dbService.getCategoryThumbnails()
         ]);
         setProducts(prods);
         setCategoriesList(cats);
+        setCategoryThumbnails(thumbs);
       } catch (err) {
         console.error('Failed to load shop page data:', err);
       } finally {
@@ -656,20 +671,20 @@ function ShopContent() {
 
       {/* ── Sticky Category Pill Bar ── */}
       <div className={`sticky transition-all duration-500 ease-in-out z-40 bg-brand-black/95 backdrop-blur-md border-b border-brand-graphite ${hideHeader ? 'top-0' : 'top-16'}`}>
-        <div className={`max-w-screen-2xl mx-auto px-8 md:px-12 transition-all duration-300 ease-in-out ${isSticky ? 'py-1.5' : 'py-3'}`}>
+        <div className={`max-w-screen-2xl mx-auto px-4 md:px-12 transition-all duration-300 ease-in-out ${isSticky ? 'py-1.5' : 'py-3'}`}>
 
           {/* Main Controls Row */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             {/* Category horizontal scroll container */}
-            <div className="w-full overflow-x-auto scrollbar-none py-1.5 snap-x snap-mandatory scroll-smooth">
+            <div className="w-full overflow-x-auto scrollbar-none py-1.5 scroll-smooth">
               {/* Unified Visual Story-Style Capsule Cards — shrinks smoothly when sticky, renders in color on all viewports */}
-              <div className="flex gap-3.5 pb-px px-1 justify-start md:justify-center" role="tablist" aria-label="Filter by category">
+              <div className="flex gap-2.5 md:gap-3.5 pb-px px-0.5 justify-start md:justify-center" role="tablist" aria-label="Filter by category">
                 {MAIN_CATEGORIES.map((cat) => {
                   const isActive = selectedCategory === cat.slug;
                   const dbCat = categoriesList.find((c) => c.slug === cat.slug);
-                  const visual = dbCat?.image_url
-                    ? { label: dbCat.name, image: dbCat.image_url }
-                    : CATEGORY_VISUALS[cat.slug] || CATEGORY_VISUALS['all'];
+                  // Priority: hardcoded override > DB image_url > auto-selected thumbnail > CATEGORY_VISUALS fallback
+                  const visualImg = CATEGORY_IMAGE_OVERRIDES[cat.slug] || dbCat?.image_url || categoryThumbnails[cat.slug] || CATEGORY_VISUALS[cat.slug]?.image || '';
+                  const visualLabel = dbCat?.name || cat.label;
                   return (
                     <div key={cat.slug} className="group flex flex-col items-center shrink-0 snap-start">
                       <motion.button
@@ -678,24 +693,31 @@ function ShopContent() {
                         onClick={() => handleCategoryChange(cat.slug)}
                         role="tab"
                         aria-selected={isActive}
-                        className={`relative overflow-hidden aspect-square transition-all duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] rounded-full ${isSticky
+                        className={`relative overflow-hidden aspect-square transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] rounded-full min-w-[48px] min-h-[48px] ${isSticky
                             ? 'w-12 h-12 md:w-14 md:h-14'
                             : 'w-[72px] h-[72px] md:w-[86px] md:h-[86px]'
                           } ${isActive
-                            ? 'shadow-[0_0_0_1px_#F0F0F0] scale-105 opacity-100'
-                            : 'bg-brand-charcoal/40 opacity-60 hover:opacity-100 border border-[--drftn-gray-700]/50'
+                            ? 'ring-2 ring-white ring-offset-2 ring-offset-black scale-105 opacity-100'
+                            : 'opacity-80 hover:opacity-100 border border-zinc-800 bg-brand-charcoal/20'
                           }`}
                       >
-                        {/* Background Visual Image (Grayscale filter removed, colorized) */}
-                        <div className="absolute inset-0 z-[1] transition-transform duration-500 group-hover:scale-110">
-                          <Image
-                            src={visual.image || 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop&q=80'}
-                            alt=""
-                            fill
-                            sizes="(max-width: 768px) 72px, 86px"
-                            className="object-cover filter brightness-[0.55] transition-all duration-300 group-hover:brightness-[0.7]"
-                          />
-                          <div className="absolute inset-0 bg-brand-black/10" aria-hidden="true" />
+                        {/* Background Visual Image or Branded Placeholder */}
+                        <div className="absolute inset-0 z-[1] transition-transform duration-500 group-hover:scale-105">
+                          {visualImg ? (
+                            <Image
+                              src={visualImg}
+                              alt=""
+                              fill
+                              sizes="(max-width: 768px) 72px, 86px"
+                              className="object-cover transition-all duration-300"
+                            />
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 to-black flex flex-col items-center justify-center border border-zinc-800/80">
+                              <span className="text-[10px] font-mono tracking-widest text-zinc-400 font-bold uppercase select-none">
+                                {visualLabel.substring(0, 3)}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Active indicator dot */}
@@ -709,13 +731,11 @@ function ShopContent() {
                         )}
                       </motion.button>
 
-                      {/* Overlaid Label text — below the circle, hides smoothly when sticky */}
-                      {!isSticky && (
-                        <span className={`mt-2.5 font-bold tracking-[0.16em] uppercase text-center px-1 font-body leading-none text-[8.5px] md:text-[9.5px] transition-all duration-200 ${isActive ? 'text-brand-offwhite opacity-100' : 'text-brand-stone opacity-60 group-hover:opacity-100'
-                          }`}>
-                          {visual.label}
-                        </span>
-                      )}
+                      {/* Label — always in DOM for stable height; hidden via opacity when sticky */}
+                      <span className={`mt-2 tracking-[0.16em] uppercase text-center px-0.5 font-body leading-none text-[8px] md:text-[9px] transition-all duration-300 select-none ${isSticky ? 'opacity-0 h-0 overflow-hidden mt-0 pointer-events-none' : 'opacity-100'} ${isActive ? 'text-white font-black' : 'text-zinc-400 font-medium group-hover:text-zinc-200'
+                        }`}>
+                        {visualLabel}
+                      </span>
                     </div>
                   );
                 })}

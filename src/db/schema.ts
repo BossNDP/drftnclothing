@@ -48,16 +48,19 @@ export const products = pgTable('products', {
   sizes: text('sizes').array().notNull().default(sql`'{"XS", "S", "M", "L", "XL", "XXL"}'::text[]`),
   stock_quantity: jsonb('stock').$type<Record<string, number>>().notNull().default(sql`'{"XS": 0, "S": 0, "M": 0, "L": 0, "XL": 0, "XXL": 0}'::jsonb`),
   is_featured: boolean('is_featured').notNull().default(false),
+  paired_with: text('paired_with'),
   is_active: boolean('is_active').notNull().default(true),
   weight_grams: integer('weight_grams').notNull().default(0),
   length_cm: integer('length_cm'),
   breadth_cm: integer('breadth_cm'),
   height_cm: integer('height_cm'),
+  units_sold: integer('units_sold').notNull().default(0),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('products_category_idx').on(t.category),
   index('products_slug_idx').on(t.slug),
+  index('products_units_sold_idx').on(t.units_sold),
 ]);
 
 // 2b. Product Variants Table

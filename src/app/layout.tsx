@@ -12,8 +12,28 @@ import PageTransition from '@/components/PageTransition';
 import SmoothScrollProvider from '@/components/SmoothScrollProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthSessionProvider } from '@/context/AuthContext';
-
 import BfcacheHandler from '@/components/BfcacheHandler';
+
+import { Outfit, Oxanium, Space_Mono } from 'next/font/google';
+
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  variable: '--font-oxanium',
+  display: 'swap',
+});
+
+const spaceMono = Space_Mono({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+  variable: '--font-space-mono',
+  display: 'swap',
+});
 
 const WhatsAppButton = dynamic(() => import('@/components/WhatsAppButton'), { ssr: false });
 const PushPrompt = dynamic(() => import('@/components/PushPrompt'), { ssr: false });
@@ -190,12 +210,11 @@ export default function RootLayout({
               `
             }}
           />
-          {/* LCP Image High-Priority Speculative Preload */}
-          <link rel="preload" href="/bg.jpg" as="image" fetchPriority="high" />
-          <link rel="preload" href="/mobilewhite-mobile.webp" as="image" type="image/webp" fetchPriority="high" media="(max-width: 767px)" />
+          {/* LCP Image High-Priority Speculative Preload (Mobile: 38KB WebP, Desktop: 129KB WebP) */}
+          <link rel="preload" href="/mobilewhite.webp" as="image" type="image/webp" fetchPriority="high" media="(max-width: 767px)" />
           <link rel="preload" href="/hero/hoodie-light.webp" as="image" type="image/webp" fetchPriority="high" media="(min-width: 768px)" />
         </head>
-        <body suppressHydrationWarning className="antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite">
+        <body suppressHydrationWarning className={`${outfit.variable} ${oxanium.variable} ${spaceMono.variable} antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite`}>
           <SmoothScrollProvider>
             <AuthSessionProvider>
               {/* Global Navbar */}

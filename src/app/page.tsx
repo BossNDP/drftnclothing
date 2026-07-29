@@ -1,9 +1,27 @@
-// Server component — exports metadata and renders the client page
+// Server Component — orchestrates the entire homepage with Server + Client islands.
+// Heavy sections (GSAP hero, editorial story, marquee) are dynamic Client Components.
+// Static sections (category grid, brand story, trending, lookbook) are pure Server Components.
 import type { Metadata } from 'next';
-import HomePageClient from './_HomePageClient';
-import { dbService } from '@/lib/db';
+import dynamic from 'next/dynamic';
+import { getCachedFeaturedProducts, getCachedTrendingProducts } from '@/lib/product-cache';
 
-export const revalidate = 180;
+// ─── Static Server Components (zero client JS) ───────────────────────────────
+import ShopByCategory from '@/components/home/ShopByCategory';
+import BrandStory from '@/components/home/BrandStory';
+import { PromoBanner, EditorialBanner } from '@/components/home/Banners';
+import TrendingSection from '@/components/home/TrendingSection';
+import Lookbook from '@/components/home/Lookbook';
+
+import HeroHoodieScene from '@/components/HeroHoodieScene';
+
+// ─── Client Islands (dynamically imported below-the-fold components) ─────────
+const IntroLoader = dynamic(() => import('@/components/home/IntroLoader'), { ssr: false });
+const BrandMarqueeTicker = dynamic(() => import('@/components/BrandMarqueeTicker'));
+const FeaturedStorySection = dynamic(() => import('@/components/home/FeaturedStorySection'));
+
+// Honour Next.js Data Cache revalidation (1 hour);
+// individual tags (featured-products, trending-products, etc.) provide tag-based invalidation.
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: 'DRFTN CLOTHING — Built Different | Premium Streetwear Bengaluru',
@@ -34,15 +52,36 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [initialProducts, initialCategories] = await Promise.all([
-    dbService.getHomepageProducts(),
-    dbService.getCategories(),
+  // Fetch data on the server — zero client-side fetch, zero DB exposure to client.
+  const [featuredProducts, trendingProducts] = await Promise.all([
+    getCachedFeaturedProducts(48),
+    getCachedTrendingProducts(4),
   ]);
 
   return (
-    <HomePageClient
-      initialProducts={initialProducts}
-      initialCategories={initialCategories}
-    />
+    <div id="page-wrapper" className="w-full bg-brand-black relative">
+      {/* ─── Client Island: Session-based intro splash (ssr:false, zero SSR cost) ─── */}
+      <IntroLoader />
+
+      {/* ─── Client Island: GSAP Scroll-jacking Hero Scene ─── */}
+      <HeroHoodieScene products={featuredProducts} />
+
+      {/* ─── Client Island: Marquee Ticker ─── */}
+      <BrandMarqueeTicker />
+
+      {/* ─── Client Island: Editorial Paired Story Section ─── */}
+      <FeaturedStorySection products={featuredProducts} />
+
+      {/* ─── Server Components below — zero client hydration cost ─── */}
+      <ShopByCategory />
+      <BrandStory />
+      <PromoBanner />
+      <EditorialBanner />
+      <TrendingSection products={trendingProducts} />
+      <Lookbook />
+    </div>
   );
 }
+
+
+

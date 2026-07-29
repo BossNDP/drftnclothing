@@ -39,6 +39,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     XXL: 0,
   });
   const [isFeatured, setIsFeatured] = useState(false);
+  const [pairedWith, setPairedWith] = useState<string>('');
   const [isActive, setIsActive] = useState(true);
 
   // Shipping & Dimensions States
@@ -101,6 +102,9 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
     price_override: string;
   }>>([]);
 
+  // Fetch featured products for paired_with dropdown
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+
   // Fetch categories on load
   useEffect(() => {
     async function loadCategories() {
@@ -112,6 +116,22 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       }
     }
     loadCategories();
+  }, []);
+
+  // Fetch featured products for paired_with dropdown on mount
+  useEffect(() => {
+    async function loadFeatured() {
+      try {
+        const res = await fetch('/api/admin/products?featured=true&limit=20');
+        if (!res.ok) return;
+        const data = await res.json();
+        const list: Product[] = data.products || data || [];
+        setFeaturedProducts(list.filter((p: Product) => p.is_featured));
+      } catch {
+        // Non-critical, silently ignore
+      }
+    }
+    loadFeatured();
   }, []);
 
   // Pre-populate if editing
@@ -148,6 +168,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
       }
       setStock(initialStock);
       setIsFeatured(initialData.is_featured);
+      setPairedWith(initialData.paired_with || '');
       setIsActive(initialData.is_active);
 
       // Load Shipping & Dimensions
@@ -984,6 +1005,7 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         sizes: activeSizes,
         stock_quantity: finalStock,
         is_featured: isFeatured,
+        paired_with: isFeatured && pairedWith ? pairedWith : null,
         is_active: isActive,
         weight_grams: weightUnit === 'kg' ? Math.round(Number(weight) * 1000) : Math.round(Number(weight)),
         length_cm: length ? Math.round(Number(length)) : null,
@@ -2194,6 +2216,31 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
                 className="rounded border-zinc-300 bg-white text-zinc-900 focus:ring-zinc-900 w-4 h-4 cursor-pointer"
               />
             </div>
+
+            {/* paired_with — optional override, only shown when featured */}
+            {isFeatured && (
+              <div className="pt-2 border-t border-zinc-200/60 space-y-1.5">
+                <span className="text-xs uppercase font-bold text-zinc-900">Pair with (optional)</span>
+                <p className="text-[10px] text-zinc-500">
+                  Force this product to be paired with another featured product on The Edit.
+                  Leave blank to let the auto-priority algorithm choose.
+                </p>
+                <select
+                  value={pairedWith}
+                  onChange={(e) => setPairedWith(e.target.value)}
+                  className="w-full border border-zinc-200 bg-white text-zinc-900 text-xs py-2 px-3 rounded focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                >
+                  <option value="">Auto-match (recommended)</option>
+                  {featuredProducts
+                    .filter((p) => p.id !== (initialData?.id ?? ''))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-2 border-t border-zinc-200/60">
               <div className="space-y-0.5">
