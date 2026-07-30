@@ -1,22 +1,17 @@
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { transitionOrderStatus } from './order-state-machine';
-import { razorpay } from '@/lib/razorpay';
 import { writeAuditLog } from './audit-service';
+import { releaseUnitSafe } from '@/lib/stock-gate';
 
 /**
  * requestOrderCancellation
  *
- * TRANSACTION SAFETY:
- * Razorpay refund is intentionally called OUTSIDE the DB transaction.
- * An HTTP call inside a transaction holds a Neon connection open for the
- * full duration of the Razorpay round-trip (~200–2000 ms), which exhausts
- * the connection pool under load.
- *
- * Flow:
- *   Phase 1 (transaction): cancel order + shipping job, fetch payment info → COMMIT
- *   Phase 2 (post-commit):  call Razorpay refund → update payment status in DB
+ * IDEMPOTENT & RACE-SAFE:
+ * Uses Postgres FOR UPDATE row lock to safely check order_status and cancel_allowed_until.
+ * Cancels pending shipping job, releases reserved stock back to PostgreSQL and Redis,
+ * and flags the order with needs_manual_refund = true for admin review.
  */
 export async function requestOrderCancellation(params: {
   orderId: string;
@@ -26,10 +21,7 @@ export async function requestOrderCancellation(params: {
 }) {
   const { orderId, userId, reason = 'Customer requested cancellation', correlationId } = params;
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // PHASE 1: Database transaction — only DB operations, no external HTTP
-  // ─────────────────────────────────────────────────────────────────────────
-  const { order, paymentRecord, alreadyCancelled } = await db.transaction(async (tx: any) => {
+  const { order, alreadyCancelled } = await db.transaction(async (tx: any) => {
     // Fetch latest order state with FOR UPDATE to prevent concurrent cancel+ship race
     const [order] = await tx
       .select()
@@ -51,12 +43,20 @@ export async function requestOrderCancellation(params: {
     // Validate 5-minute cancellation window
     if (order.cancel_allowed_until && now > new Date(order.cancel_allowed_until)) {
       throw new Error(
-        'CANCELLATION_WINDOW_EXPIRED: The 5-minute cancellation window has passed. Order cannot be cancelled.'
+        'CANCELLATION_WINDOW_EXPIRED: The cancellation window has passed. Order cannot be cancelled.'
+      );
+    }
+
+    // Validate state hasn't progressed past cancellable states
+    const nonCancellableStates = ['SHIPPING_CREATED', 'PICKUP_BOOKED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+    if (nonCancellableStates.includes(order.order_status)) {
+      throw new Error(
+        `ORDER_NOT_CANCELLABLE: Order is already in ${order.order_status} state and cannot be cancelled.`
       );
     }
 
     if (order.order_status === 'CANCELLED') {
-      return { order, paymentRecord: null, alreadyCancelled: true };
+      return { order, alreadyCancelled: true };
     }
 
     // Transition order to CANCELLED via FSM
@@ -68,6 +68,42 @@ export async function requestOrderCancellation(params: {
       correlationId,
       clientTx: tx,
     });
+
+    // Flag for manual refund review instead of auto-refund
+    await tx
+      .update(schema.orders)
+      .set({
+        needs_manual_refund: true,
+        updated_at: new Date(),
+      })
+      .where(eq(schema.orders.id, order.id));
+
+    // Release reserved inventory back to catalog in PostgreSQL
+    const itemsList = (order.items as any[]) || [];
+    for (const item of itemsList) {
+      const itemId = item.id || item.productId;
+      const itemSize = item.size;
+      const itemQty = Number(item.quantity || 1);
+
+      if (itemId && itemSize) {
+        await tx.execute(
+          sql`
+            UPDATE products
+            SET stock = jsonb_set(
+              stock,
+              ${sql.raw(`'{${itemSize}}'`)},
+              to_jsonb(
+                (COALESCE(stock->>'${sql.raw(itemSize)}', '0'))::int + ${itemQty}
+              )
+            )
+            WHERE id = ${itemId}
+          `
+        );
+
+        // Also release in Redis stock gate
+        await releaseUnitSafe(itemId, itemSize, itemQty);
+      }
+    }
 
     // Cancel any pending shipping job atomically
     await tx
@@ -84,96 +120,24 @@ export async function requestOrderCancellation(params: {
         )
       );
 
-    // Fetch the captured payment record (needed after commit for the Razorpay call)
-    const [paymentRecord] = await tx
-      .select()
-      .from(schema.payments)
-      .where(and(eq(schema.payments.order_id, order.id), eq(schema.payments.status, 'captured')))
-      .limit(1);
-
     await writeAuditLog({
       orderId: order.id,
       correlationId,
-      action: 'ORDER_CANCELLED_WITHIN_WINDOW',
-      details: { reason },
+      action: 'ORDER_CANCELLED_MANUAL_REFUND_REQUIRED',
+      details: { reason, needs_manual_refund: true },
       clientTx: tx,
     });
 
-    return { order, paymentRecord, alreadyCancelled: false };
+    return { order, alreadyCancelled: false };
   });
-  // ─────────────────────────────────────────────────────────────────────────
-  // PHASE 1 COMPLETE — transaction committed. Connection released.
-  // ─────────────────────────────────────────────────────────────────────────
 
   if (alreadyCancelled) {
     return { success: true, message: 'Order is already cancelled' };
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // PHASE 2: Razorpay refund — executed AFTER transaction commit
-  // This ensures the Neon connection is released before the HTTP round-trip.
-  // ─────────────────────────────────────────────────────────────────────────
-  const razorpayPaymentId = paymentRecord?.razorpay_payment_id || order.payment_id;
-
-  if (razorpayPaymentId && razorpay && !razorpayPaymentId.startsWith('pay_mock_')) {
-    try {
-      const refundAmount =
-        order.payment_type === 'cod' ? (order.booking_amount || 20000) : order.total;
-
-      await razorpay.payments.refund(razorpayPaymentId, {
-        amount: refundAmount,
-        notes: {
-          reason: `Order ${order.order_number} cancelled within window`,
-          order_id: order.id,
-        },
-      });
-
-      // Update payment + order refund status after successful Razorpay response
-      await db.transaction(async (tx: any) => {
-        if (paymentRecord) {
-          await tx
-            .update(schema.payments)
-            .set({ status: 'refunded', updated_at: new Date() })
-            .where(eq(schema.payments.id, paymentRecord.id));
-        }
-
-        await tx
-          .update(schema.orders)
-          .set({ payment_status: 'refunded', updated_at: new Date() })
-          .where(eq(schema.orders.id, order.id));
-
-        await writeAuditLog({
-          orderId: order.id,
-          correlationId,
-          action: 'ORDER_REFUND_PROCESSED',
-          details: { razorpayPaymentId, refundAmount },
-          clientTx: tx,
-        });
-      });
-
-    } catch (refundErr: any) {
-      // Refund failure is non-fatal to cancellation — order is already cancelled in DB.
-      // Log prominently so support can manually process the refund.
-      console.error(
-        `[CancellationService] Razorpay refund FAILED for order ${order.order_number}. ` +
-        `Payment ID: ${razorpayPaymentId}. Manual refund required.`,
-        refundErr
-      );
-      await writeAuditLog({
-        orderId: order.id,
-        correlationId,
-        action: 'ORDER_REFUND_FAILED_MANUAL_REVIEW_REQUIRED',
-        details: {
-          razorpayPaymentId,
-          error: refundErr?.message || String(refundErr),
-        },
-      });
-    }
-  }
-
   return {
     success: true,
     orderNumber: order.order_number,
-    message: 'Order successfully cancelled. Refund initiated if applicable.',
+    message: 'Order successfully cancelled. Flagged for manual refund review.',
   };
 }

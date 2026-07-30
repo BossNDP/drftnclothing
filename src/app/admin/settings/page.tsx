@@ -167,6 +167,56 @@ export default function AdminSettings() {
         </div>
       </div>
 
+      {/* Maintenance Mode Toggle Card */}
+      <div className={`border rounded-[16px] p-6 md:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all mb-8 ${
+        String(settings.maintenance_mode) === 'true'
+          ? 'bg-amber-500/10 border-amber-500/30'
+          : 'bg-white border-zinc-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)]'
+      }`}>
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-zinc-900 uppercase tracking-wider">Maintenance Mode</h2>
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full ${
+              String(settings.maintenance_mode) === 'true' ? 'bg-amber-500 text-black' : 'bg-zinc-200 text-zinc-700'
+            }`}>
+              {String(settings.maintenance_mode) === 'true' ? 'ACTIVE (ON)' : 'INACTIVE (OFF)'}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500 mt-1 max-w-xl">
+            When active, all customer-facing routes show an &quot;Under Construction&quot; page and block orders. Admin pages and login remain 100% accessible.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={async () => {
+            const nextVal = String(settings.maintenance_mode) !== 'true';
+            setIsSaving(true);
+            try {
+              const res = await fetch('/api/admin/settings', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ maintenance_mode: String(nextVal) }),
+              });
+              if (!res.ok) throw new Error('Failed to update maintenance mode');
+              setSettings((prev) => prev ? { ...prev, maintenance_mode: String(nextVal) } : prev);
+              addToast(`Maintenance mode turned ${nextVal ? 'ON' : 'OFF'}`, 'success');
+            } catch (err: any) {
+              addToast(err.message || 'Failed to update maintenance mode', 'error');
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+          className={`px-6 py-3 font-bold uppercase tracking-widest text-xs rounded-lg transition-colors cursor-pointer shrink-0 ${
+            String(settings.maintenance_mode) === 'true'
+              ? 'bg-amber-500 hover:bg-amber-600 text-black font-extrabold'
+              : 'bg-zinc-900 hover:bg-zinc-800 text-white'
+          }`}
+        >
+          {String(settings.maintenance_mode) === 'true' ? 'Turn Maintenance Mode OFF' : 'Turn Maintenance Mode ON'}
+        </button>
+      </div>
+
       <form onSubmit={handleSave} className="space-y-8">
         
         {/* General Details */}

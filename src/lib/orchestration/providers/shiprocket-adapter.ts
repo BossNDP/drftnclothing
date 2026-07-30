@@ -1,4 +1,5 @@
 import { writeAuditLog } from '../audit-service';
+import { callShiprocketApi } from './shiprocket-logger';
 
 export interface ShiprocketCreateOrderPayload {
   orderId: string;
@@ -33,7 +34,7 @@ export interface ShippingProviderResult {
 const SHIPROCKET_API_URL = 'https://apiv2.shiprocket.in/v1/external';
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
-async function getShiprocketToken(): Promise<string> {
+async function getShiprocketToken(orderId?: string): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now()) {
     return cachedToken.token;
   }
@@ -45,14 +46,20 @@ async function getShiprocketToken(): Promise<string> {
     throw new Error('SHIPROCKET_CREDENTIALS_MISSING: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD not configured');
   }
 
-  const res = await fetch(`${SHIPROCKET_API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+  const loginPayload = { email, password };
+  const { ok, data } = await callShiprocketApi<{ token?: string; message?: string }>({
+    endpoint: 'auth/login',
+    url: `${SHIPROCKET_API_URL}/auth/login`,
+    options: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginPayload),
+    },
+    orderId,
+    requestPayload: { email, password: '***REDACTED***' },
   });
 
-  const data = await res.json();
-  if (!res.ok || !data.token) {
+  if (!ok || !data.token) {
     throw new Error(`SHIPROCKET_AUTH_FAILED: ${data.message || JSON.stringify(data)}`);
   }
 
@@ -99,7 +106,7 @@ export class ShiprocketAdapter {
       };
     }
 
-    const token = await getShiprocketToken();
+    const token = await getShiprocketToken(payload.orderNumber);
     const isCod = payload.paymentType === 'cod';
 
     // For COD: collect ONLY remainingAmount (in rupees)
@@ -137,17 +144,22 @@ export class ShiprocketAdapter {
     };
 
     // 1. Create Order in Shiprocket
-    const createRes = await fetch(`${SHIPROCKET_API_URL}/orders/create/adhoc`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+    const { ok: createOk, data: createData } = await callShiprocketApi({
+      endpoint: 'orders/create/adhoc',
+      url: `${SHIPROCKET_API_URL}/orders/create/adhoc`,
+      options: {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(shiprocketPayload),
       },
-      body: JSON.stringify(shiprocketPayload),
+      orderId: payload.orderNumber,
+      requestPayload: shiprocketPayload,
     });
 
-    const createData = await createRes.json();
-    if (!createRes.ok || !createData.order_id) {
+    if (!createOk || !createData.order_id) {
       throw new Error(`SHIPROCKET_CREATE_ORDER_FAILED: ${createData.message || JSON.stringify(createData)}`);
     }
 
@@ -158,56 +170,72 @@ export class ShiprocketAdapter {
     let awbCode = '';
     let courierName = 'Standard Shipping';
 
-    try {
-      const awbRes = await fetch(`${SHIPROCKET_API_URL}/courier/assign/awb`, {
+    const awbPayload = { shipment_id: shipmentId };
+    const { ok: awbOk, data: awbData } = await callShiprocketApi({
+      endpoint: 'courier/assign/awb',
+      url: `${SHIPROCKET_API_URL}/courier/assign/awb`,
+      options: {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ shipment_id: shipmentId }),
-      });
-      const awbData = await awbRes.json();
+        body: JSON.stringify(awbPayload),
+      },
+      orderId: payload.orderNumber,
+      requestPayload: awbPayload,
+    });
 
-      if (awbRes.ok && awbData.response?.data?.awb_code) {
-        awbCode = awbData.response.data.awb_code;
-        courierName = awbData.response.data.courier_name || courierName;
-      }
-    } catch (awbErr) {
-      console.warn('[ShiprocketAdapter] AWB assignment deferred:', awbErr);
+    if (awbOk && awbData.response?.data?.awb_code) {
+      awbCode = awbData.response.data.awb_code;
+      courierName = awbData.response.data.courier_name || courierName;
+    } else {
+      console.warn(`[ShiprocketAdapter] AWB assignment deferred for order ${payload.orderNumber}: ${JSON.stringify(awbData)}`);
     }
 
     // 3. Generate Label
     let labelUrl = '';
-    try {
-      const labelRes = await fetch(`${SHIPROCKET_API_URL}/courier/generate/label`, {
+    const labelPayload = { shipment_id: [shipmentId] };
+    const { ok: labelOk, data: labelData } = await callShiprocketApi({
+      endpoint: 'courier/generate/label',
+      url: `${SHIPROCKET_API_URL}/courier/generate/label`,
+      options: {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ shipment_id: [shipmentId] }),
-      });
-      const labelData = await labelRes.json();
-      if (labelRes.ok && labelData.label_url) {
-        labelUrl = labelData.label_url;
-      }
-    } catch (lblErr) {
-      console.warn('[ShiprocketAdapter] Label generation deferred:', lblErr);
+        body: JSON.stringify(labelPayload),
+      },
+      orderId: payload.orderNumber,
+      requestPayload: labelPayload,
+    });
+
+    if (labelOk && labelData.label_url) {
+      labelUrl = labelData.label_url;
+    } else {
+      console.warn(`[ShiprocketAdapter] Label generation deferred for order ${payload.orderNumber}: ${JSON.stringify(labelData)}`);
     }
 
     // 4. Request Pickup
-    try {
-      await fetch(`${SHIPROCKET_API_URL}/orders/show/fulfillment/pickup`, {
+    const pickupPayload = { shipment_id: [shipmentId] };
+    const { ok: pickupOk, data: pickupData } = await callShiprocketApi({
+      endpoint: 'orders/show/fulfillment/pickup',
+      url: `${SHIPROCKET_API_URL}/orders/show/fulfillment/pickup`,
+      options: {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ shipment_id: [shipmentId] }),
-      });
-    } catch (pickupErr) {
-      console.warn('[ShiprocketAdapter] Pickup scheduling deferred:', pickupErr);
+        body: JSON.stringify(pickupPayload),
+      },
+      orderId: payload.orderNumber,
+      requestPayload: pickupPayload,
+    });
+
+    if (!pickupOk) {
+      console.warn(`[ShiprocketAdapter] Pickup scheduling deferred for order ${payload.orderNumber}: ${JSON.stringify(pickupData)}`);
     }
 
     const trackingUrl = awbCode

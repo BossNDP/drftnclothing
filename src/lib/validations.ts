@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 // Sizes allowed in the system
-export const SizeEnum = z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL']);
+export const SizeEnum = z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL', '26', '28', '30', '32', '34', '36', '38']);
 
 // Product ID pattern (enforces valid UUID to prevent DB casting crashes)
 export const ProductIdSchema = z.string().uuid('Invalid product ID format');
@@ -126,7 +126,7 @@ export const adminProductSchema = z.object({
   gender: z.string().min(1, 'Gender is required'),
   images: z.array(z.string().min(1)).default([]),
   sizes: z.array(SizeEnum).default(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
-  stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()).default({ XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 }),
+  stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()).default({ XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0, '26': 0, '28': 0, '30': 0, '32': 0, '34': 0, '36': 0, '38': 0 }),
   is_featured: z.boolean().default(false),
   paired_with: z.string().uuid().optional().nullable(),
   is_active: z.boolean().default(true),

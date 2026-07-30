@@ -4,6 +4,7 @@ import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { getAuth, clerkClient } from '@clerk/nextjs/server';
+import { callShiprocketApi } from '@/lib/orchestration/providers/shiprocket-logger';
 
 const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
 
@@ -194,14 +195,20 @@ export async function POST(
         console.log('Shiprocket configuration found. Attempting automatic shipment creation...');
         try {
           // Step A: Login to Shiprocket
-          const authRes = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: shiprocketEmail, password: shiprocketPassword }),
+          const loginPayload = { email: shiprocketEmail, password: shiprocketPassword };
+          const { ok: authOk, data: authData } = await callShiprocketApi<{ token?: string; message?: string }>({
+            endpoint: 'auth/login',
+            url: 'https://apiv2.shiprocket.in/v1/external/auth/login',
+            options: {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(loginPayload),
+            },
+            orderId: order.order_number,
+            requestPayload: { email: shiprocketEmail, password: '***REDACTED***' },
           });
-          const authData = await authRes.json();
-          
-          if (!authRes.ok || !authData.token) {
+
+          if (!authOk || !authData.token) {
             throw new Error(authData.message || 'Shiprocket authentication failed');
           }
 
@@ -220,40 +227,47 @@ export async function POST(
             selling_price: (i.price / 100).toString(),
           }));
 
-          // Step B: Create custom order in Shiprocket
-          const orderRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              order_id: order.order_number,
-              order_date: new Date().toISOString().split('T')[0],
-              pickup_location: 'Primary',
-              billing_customer_name: firstName,
-              billing_last_name: lastName,
-              billing_address: shippingAddr.line1,
-              billing_address_2: shippingAddr.line2 || '',
-              billing_city: shippingAddr.city,
-              billing_pincode: shippingAddr.pincode,
-              billing_state: shippingAddr.state,
-              billing_country: 'India',
-              billing_email: order.customer_email,
-              billing_phone: order.customer_phone,
-              shipping_is_billing: true,
-              order_items: itemsPayload,
-              payment_method: order.payment_status === 'paid' ? 'Prepaid' : 'COD',
-              sub_total: (order.total / 100).toString(),
-              length: 10,
-              width: 10,
-              height: 10,
-              weight: totalWeightGrams / 1000,
-            }),
-          });
-          const orderData = await orderRes.json();
+          const createPayload = {
+            order_id: order.order_number,
+            order_date: new Date().toISOString().split('T')[0],
+            pickup_location: process.env.SHIPROCKET_PICKUP_LOCATION || 'Primary',
+            billing_customer_name: firstName,
+            billing_last_name: lastName,
+            billing_address: shippingAddr.line1,
+            billing_address_2: shippingAddr.line2 || '',
+            billing_city: shippingAddr.city,
+            billing_pincode: shippingAddr.pincode,
+            billing_state: shippingAddr.state,
+            billing_country: 'India',
+            billing_email: order.customer_email,
+            billing_phone: order.customer_phone,
+            shipping_is_billing: true,
+            order_items: itemsPayload,
+            payment_method: order.payment_status === 'paid' ? 'Prepaid' : 'COD',
+            sub_total: (order.total / 100).toString(),
+            length: 10,
+            width: 10,
+            height: 10,
+            weight: totalWeightGrams / 1000,
+          };
 
-          if (!orderRes.ok || !orderData.order_id) {
+          // Step B: Create custom order in Shiprocket
+          const { ok: orderOk, data: orderData } = await callShiprocketApi({
+            endpoint: 'orders/create/adhoc',
+            url: 'https://apiv2.shiprocket.in/v1/external/orders/create/adhoc',
+            options: {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(createPayload),
+            },
+            orderId: order.order_number,
+            requestPayload: createPayload,
+          });
+
+          if (!orderOk || !orderData.order_id) {
             throw new Error(orderData.message || 'Shiprocket order creation failed');
           }
 
@@ -261,21 +275,27 @@ export async function POST(
           const shipmentId = orderData.shipment_id;
 
           // Step C: Generate AWB for shipment
-          const awbRes = await fetch('https://apiv2.shiprocket.in/v1/external/courier/assign/awb', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
+          const awbPayload = { shipment_id: shipmentId };
+          const { ok: awbOk, data: awbData } = await callShiprocketApi({
+            endpoint: 'courier/assign/awb',
+            url: 'https://apiv2.shiprocket.in/v1/external/courier/assign/awb',
+            options: {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(awbPayload),
             },
-            body: JSON.stringify({ shipment_id: shipmentId }),
+            orderId: order.order_number,
+            requestPayload: awbPayload,
           });
-          const awbData = await awbRes.json();
 
-          if (awbRes.ok && awbData.response?.data?.awb_code) {
+          if (awbOk && awbData.response?.data?.awb_code) {
             awb = awbData.response.data.awb_code;
             courierName = awbData.response.data.courier_name || 'Shiprocket Partner';
           } else {
-            console.warn('Shiprocket AWB assignment failed, falling back to mock AWB reference', awbData);
+            console.warn(`[ShiprocketAPI] courier/assign/awb deferred for order ${order.order_number}: ${JSON.stringify(awbData)}`);
             awb = `SR-${shipmentId}`;
           }
         } catch (err: any) {

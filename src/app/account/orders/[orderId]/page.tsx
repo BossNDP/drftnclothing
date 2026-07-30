@@ -5,7 +5,7 @@ import { db } from '@/db';
 import { orders, productImages } from '@/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 import Link from 'next/link';
-import { ArrowLeft, Clock, ShoppingBag, MapPin, Map, Calendar, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Clock, ShoppingBag, MapPin, Map, Calendar, AlertCircle, ExternalLink } from 'lucide-react';
 import CancelOrderButton from './CancelOrderButton';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/jwt';
@@ -126,10 +126,47 @@ export default async function OrderDetailPage({ params }: { params: { orderId: s
               Placed on {formattedDate}
             </p>
           </div>
-          {isCancelable && (
-            <CancelOrderButton orderId={order.id} />
-          )}
+          <CancelOrderButton
+            orderId={order.id}
+            cancelAllowedUntil={order.cancel_allowed_until}
+            orderStatus={order.order_status}
+          />
         </div>
+
+        {/* Tracking Section (Task 1) */}
+        {!isPickup && (
+          <div className="bg-zinc-950 border border-zinc-850 p-6 rounded-xl space-y-3 font-mono">
+            <h3 className="text-[10px] uppercase font-mono tracking-widest text-zinc-400 border-b border-zinc-900 pb-2 flex items-center gap-2">
+              <Map className="w-3.5 h-3.5" />
+              Shipment Tracking
+            </h3>
+            {order.tracking_url ? (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                <div>
+                  <p className="text-xs font-bold text-white uppercase">Your shipment is on the way</p>
+                  {order.courier_name && (
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Courier: {order.courier_name} {order.awb_code ? `(AWB: ${order.awb_code})` : ''}
+                    </p>
+                  )}
+                </div>
+                <a
+                  href={order.tracking_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-white text-black hover:bg-zinc-200 font-bold uppercase tracking-widest text-xs px-6 py-3 rounded-lg transition-all shadow-md shrink-0 cursor-pointer"
+                >
+                  <span>Track Your Order</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-400 py-1">
+                Your order is being prepared — tracking will be available once shipped.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Stepper Timeline Progress */}
         {order.order_status !== 'cancelled' && 

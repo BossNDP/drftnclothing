@@ -304,24 +304,45 @@ export default function AdminOrderDetail() {
                   <span className="text-zinc-900 font-bold tracking-widest">{order.pickup_code}</span>
                 </div>
               </div>
-            ) : order.tracking_number ? (
-              <div className="bg-zinc-50 border border-zinc-200 p-6 rounded space-y-4">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  <div>
-                    <h4 className="text-xs uppercase text-zinc-550 font-bold tracking-wider">Shipment Status</h4>
-                    <p className="text-sm font-bold text-zinc-900 mt-0.5">AWB Tracking Booked</p>
+            ) : order.tracking_number || order.tracking_url ? (
+              <div className="bg-zinc-50 border border-zinc-200 p-6 rounded space-y-4 font-mono">
+                <div className="flex items-center justify-between border-b border-zinc-200/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-zinc-700" />
+                    <h4 className="text-xs uppercase text-zinc-900 font-bold tracking-wider">Shipment Details</h4>
                   </div>
+                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-zinc-200 text-zinc-800">
+                    Status: {order.order_status}
+                  </span>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2 border-t border-zinc-200/60">
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-zinc-500 block">Courier Partner</span>
-                    <span className="font-bold text-zinc-900 block mt-0.5">{order.courier_partner}</span>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-bold">Courier Name</span>
+                    <span className="font-bold text-zinc-900 block mt-0.5">
+                      {order.courier_name || order.courier_partner || 'Not yet shipped'}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block font-mono">AWB Code</span>
-                    <span className="font-mono font-bold text-zinc-900 block mt-0.5">{order.tracking_number}</span>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-bold">AWB Code</span>
+                    <span className="font-bold text-zinc-900 block mt-0.5">
+                      {order.awb_code || order.tracking_number || 'Not yet shipped'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500 block text-[10px] uppercase font-bold">Tracking URL</span>
+                    {order.tracking_url ? (
+                      <a
+                        href={order.tracking_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-blue-600 hover:underline block mt-0.5 truncate"
+                      >
+                        {order.tracking_url}
+                      </a>
+                    ) : (
+                      <span className="text-zinc-500 block mt-0.5 font-normal italic">Not yet shipped</span>
+                    )}
                   </div>
                 </div>
               </div>

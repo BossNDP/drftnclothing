@@ -140,6 +140,7 @@ export const orders = pgTable('orders', {
   zone: text('zone'),
   invoice_number: text('invoice_number'),
   notes: text('notes'),
+  needs_manual_refund: boolean('needs_manual_refund').notNull().default(false),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -2,6 +2,33 @@ import { clerkMiddleware, createRouteMatcher, clerkClient } from '@clerk/nextjs/
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { rateLimit } from '@/lib/rateLimit';
+import { neon } from '@neondatabase/serverless';
+
+let cachedMaintenanceMode: { isMaintenance: boolean; expiresAt: number } | null = null;
+
+async function checkMaintenanceMode(): Promise<boolean> {
+  if (cachedMaintenanceMode && cachedMaintenanceMode.expiresAt > Date.now()) {
+    return cachedMaintenanceMode.isMaintenance;
+  }
+
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) return false;
+
+  try {
+    const sql = neon(dbUrl);
+    const rows = await sql`SELECT value FROM settings WHERE key = 'maintenance_mode' LIMIT 1;`;
+    const isMaintenance = rows.length > 0 && rows[0].value === 'true';
+
+    cachedMaintenanceMode = {
+      isMaintenance,
+      expiresAt: Date.now() + 3000,
+    };
+    return isMaintenance;
+  } catch (err) {
+    console.error('[Middleware Maintenance Gate Error]:', err);
+    return false;
+  }
+}
 
 // SQL injection and malicious request pattern filters
 function isMalicious(urlStr: string): boolean {
@@ -37,6 +64,30 @@ export default clerkMiddleware(async (auth, request) => {
   // would break the token-exchange step and cause a 404.
   if (pathname.startsWith('/sso-callback')) {
     return NextResponse.next();
+  }
+
+  // Maintenance Mode Gate — allow admin, auth, and static routes through
+  const isExemptFromMaintenance =
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/api/admin') ||
+    pathname.startsWith('/sso-callback') ||
+    pathname.startsWith('/maintenance') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api/auth') ||
+    pathname === secretPath;
+
+  if (!isExemptFromMaintenance) {
+    const isMaintenanceOn = await checkMaintenanceMode();
+    if (isMaintenanceOn) {
+      if (pathname.startsWith('/api/')) {
+        return new NextResponse(
+          JSON.stringify({ error: 'System maintenance in progress. We will be back shortly.' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      const maintenanceUrl = new URL('/maintenance', request.url);
+      return NextResponse.rewrite(maintenanceUrl);
+    }
   }
 
   const adminSecretVal = process.env.ADMIN_JWT_SECRET || (

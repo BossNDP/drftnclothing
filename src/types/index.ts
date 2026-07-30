@@ -79,8 +79,13 @@ export interface Order {
   fulfillment_type?: 'delivery' | 'pickup';
   pickup_status?: 'awaiting_pickup' | 'ready_for_pickup' | 'collected' | null;
   pickup_code?: string | null;
-  tracking_number?: string;
-  courier_partner?: string;
+  tracking_number?: string | null;
+  courier_partner?: string | null;
+  courier_name?: string | null;
+  awb_code?: string | null;
+  tracking_url?: string | null;
+  cancel_allowed_until?: string | Date | null;
+  needs_manual_refund?: boolean;
   shiprocket_order_id?: string | null;
   courier_provider?: 'borzo' | 'shiprocket' | null;
   zone?: 'BLR_EXPRESS' | 'STANDARD' | null;
@@ -121,6 +126,7 @@ export interface StoreSettings {
   borzo_cutoff_start: string;
   borzo_cutoff_end: string;
   borzo_pickup_address: string;
+  maintenance_mode?: string | boolean;
 }
 
 export interface CartItem {

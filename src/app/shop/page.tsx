@@ -637,7 +637,7 @@ function ShopContent() {
   }, {} as Record<string, Array<{ slug: string; label: string }>>);
 
   const genders = ['all', 'unisex', 'men', 'women'];
-  const sizes = ['all', 'XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  const sizes = ['all', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '26', '28', '30', '32', '34', '36', '38'];
 
   // Count active filters (for the mobile badge)
   const activeFilterCount = [

@@ -13,7 +13,7 @@ interface ProductFormProps {
   mode: 'create' | 'edit';
 }
 
-const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'] as const;
+const AVAILABLE_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '26', '28', '30', '32', '34', '36', '38'] as const;
 const GENDERS = ['unisex', 'men', 'women'] as const;
 
 export default function ProductForm({ initialData, mode }: ProductFormProps) {

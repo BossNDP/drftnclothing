@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +19,7 @@ const DEFAULT_SETTINGS = {
   borzo_cutoff_start: '11:00',
   borzo_cutoff_end: '16:00',
   borzo_pickup_address: 'DRFTN Store, 1st Floor, Kogilu Main Rd, above Sri Venkateshwar Vaibhava Veg Hotel, K B Sandra, Yelahanka, Bengaluru, Karnataka, 560064',
+  maintenance_mode: 'false',
 };
 
 function getEnvStatus() {
@@ -39,7 +39,7 @@ function getEnvStatus() {
 export async function GET() {
   try {
     const rows = await db.select().from(schema.settings);
-    const settingsObj = { ...DEFAULT_SETTINGS };
+    const settingsObj: Record<string, any> = { ...DEFAULT_SETTINGS };
 
     rows.forEach((row: any) => {
       if (row.key === 'free_shipping_threshold') {
@@ -60,6 +60,8 @@ export async function GET() {
         settingsObj.borzo_cutoff_end = row.value;
       } else if (row.key === 'borzo_pickup_address') {
         settingsObj.borzo_pickup_address = row.value;
+      } else if (row.key === 'maintenance_mode') {
+        settingsObj.maintenance_mode = row.value;
       }
     });
 
@@ -94,7 +96,7 @@ export async function PATCH(request: Request) {
 
     // Re-fetch settings
     const rows = await db.select().from(schema.settings);
-    const settingsObj = { ...DEFAULT_SETTINGS };
+    const settingsObj: Record<string, any> = { ...DEFAULT_SETTINGS };
 
     rows.forEach((row: any) => {
       if (row.key === 'free_shipping_threshold') {
@@ -115,6 +117,8 @@ export async function PATCH(request: Request) {
         settingsObj.borzo_cutoff_end = row.value;
       } else if (row.key === 'borzo_pickup_address') {
         settingsObj.borzo_pickup_address = row.value;
+      } else if (row.key === 'maintenance_mode') {
+        settingsObj.maintenance_mode = row.value;
       }
     });
 
