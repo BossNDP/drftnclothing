@@ -30,10 +30,13 @@ export async function POST() {
 
     if (userId) {
       // Update last_active_at in database
-      await db
-        .update(schema.users)
-        .set({ lastActiveAt: new Date() })
-        .where(eq(schema.users.id, userId));
+      const updateData = { last_active_at: new Date() };
+      if (Object.keys(updateData).length > 0) {
+        await db
+          .update(schema.users)
+          .set(updateData)
+          .where(eq(schema.users.id, userId));
+      }
       return NextResponse.json({ success: true });
     }
 

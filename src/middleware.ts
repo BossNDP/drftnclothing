@@ -39,7 +39,11 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.next();
   }
 
-  const adminSecretVal = process.env.ADMIN_JWT_SECRET || 'drftn_secure_secret_fallback';
+  const adminSecretVal = process.env.ADMIN_JWT_SECRET || (
+    process.env.NODE_ENV === 'production' 
+      ? 'PROD_SECRET_REQUIRED_' + (globalThis as any).__PROD_SECRET_KEY__
+      : 'drftn_secure_secret_fallback'
+  );
 
   // 1. Secret Path Gateway - authorize and redirect to admin
   if (pathname === secretPath) {

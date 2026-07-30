@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+export const runtime = 'nodejs';
 import crypto from 'crypto';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, and, inArray, sql } from 'drizzle-orm';
+import { eq, and, or, ne, inArray, sql } from 'drizzle-orm';
 import { waitUntil } from '@vercel/functions';
 
 function generateOrderNumber(): string {
@@ -22,7 +23,7 @@ import { auth } from '@clerk/nextjs/server';
 
 import { verifyToken } from '@/lib/jwt';
 import { cleanupExpiredOrders } from '@/lib/orderCleanup';
-import { checkDeliveryEligibility } from '@/lib/shipping-eligibility';
+import { getDeliveryEligibilityCacheOnly } from '@/lib/shipping-eligibility';
 
 export async function POST(request: Request) {
   const tStart = performance.now();
@@ -135,6 +136,24 @@ export async function POST(request: Request) {
     const { items, discountCode, customerInfo, fulfillmentType, paymentMethod, shippingProvider, verifiedPhone, verifiedPhoneToken } = validationResult.data;
     const isPickup = fulfillmentType === 'pickup';
     const isCod = paymentMethod === 'cod';
+
+    // 1b. Fraud engine evaluation for COD
+    if (isCod) {
+      const { evaluateFraud } = await import('@/lib/orchestration/fraud-engine');
+      const fraudEval = await evaluateFraud({
+        userId: finalUserId,
+        phone: customerInfo.phone,
+        email: customerInfo.email,
+        ip,
+      });
+
+      if (!fraudEval.allowCod) {
+        return NextResponse.json(
+          { error: `COD is currently unavailable for this account/address. ${fraudEval.reason || ''}` },
+          { status: 400 }
+        );
+      }
+    }
 
     // 2. Idempotency check
     const idempotencyIdentity = finalUserId || sessionToken || ip;
@@ -429,19 +448,58 @@ export async function POST(request: Request) {
       }
 
       // Verify expiration (safe to check outside tx — expiry is immutable once set)
-      if (dbCode.expiresAt && new Date(dbCode.expiresAt) < new Date()) {
+      if (dbCode.expires_at && new Date(dbCode.expires_at) < new Date()) {
         return NextResponse.json({ error: 'Discount code has expired' }, { status: 400 });
       }
 
       // Early-exit preflight for usage limit — definitive re-check happens inside tx with FOR UPDATE
-      if (dbCode.usageLimit !== null && dbCode.usedCount >= dbCode.usageLimit) {
+      if (dbCode.usage_limit !== null && dbCode.used_count >= dbCode.usage_limit) {
         return NextResponse.json({ error: 'Discount code usage limit has been reached' }, { status: 400 });
       }
 
+      // First-order welcome discount check
+      let signupDiscountCode = 'DRFTN10';
+      dbSettings.forEach((row: any) => {
+        if (row.key === 'signup_discount_code') signupDiscountCode = row.value.toUpperCase().trim();
+      });
+
+      const isFirstOrderCode = !!cleanCode && (cleanCode === signupDiscountCode || cleanCode.includes('WELCOME') || cleanCode.includes('FIRST'));
+
+      if (isFirstOrderCode) {
+        const emailToMatch = customerInfo.email ? customerInfo.email.toLowerCase().trim() : '';
+        const phoneToMatch = customerInfo.phone ? customerInfo.phone.trim() : '';
+
+        const conditions = [];
+        if (emailToMatch) conditions.push(eq(schema.orders.customer_email, emailToMatch));
+        if (phoneToMatch) conditions.push(eq(schema.orders.customer_phone, phoneToMatch));
+        if (finalUserId) conditions.push(eq(schema.orders.user_id, finalUserId));
+
+        if (conditions.length > 0) {
+          const [existingOrder] = await db
+            .select({ id: schema.orders.id })
+            .from(schema.orders)
+            .where(
+              and(
+                or(...conditions),
+                ne(schema.orders.order_status, 'cancelled')
+              )
+            )
+            .limit(1);
+
+          if (existingOrder) {
+            return NextResponse.json(
+              { error: 'This welcome discount code is valid for first-time orders only.' },
+              { status: 400 }
+            );
+          }
+        }
+      }
+
       // Verify minimum order value
-      if (calculatedSubtotal < dbCode.minOrderValue) {
+      const minOrderVal = Number(dbCode.min_order_value || 0);
+      if (calculatedSubtotal < minOrderVal) {
         return NextResponse.json(
-          { error: `Minimum order subtotal of ₹${(dbCode.minOrderValue / 100).toFixed(2)} required for this code` },
+          { error: `Minimum order subtotal of ₹${(minOrderVal / 100).toFixed(2)} required for this code` },
           { status: 400 }
         );
       }
@@ -449,6 +507,9 @@ export async function POST(request: Request) {
       // Calculate discount amount (paise)
       if (dbCode.discount_type === 'percent') {
         discountAmount = Math.round(calculatedSubtotal * (dbCode.discount_value / 100));
+        if (dbCode.max_discount_amount && dbCode.max_discount_amount > 0) {
+          discountAmount = Math.min(discountAmount, dbCode.max_discount_amount);
+        }
       } else if (dbCode.discount_type === 'flat') {
         discountAmount = dbCode.discount_value;
       }
@@ -469,7 +530,10 @@ export async function POST(request: Request) {
     let computedExpressCharge = 15000; // default ₹150 in paise
     
     if (!isPickup && customerInfo.address?.pincode) {
-      const eligibilityResult = await checkDeliveryEligibility(customerInfo.address.pincode);
+      // CHECKOUT SAFETY: Only read from Redis cache — never call Borzo API live during checkout.
+      // The cache is populated when the customer enters their address (serviceability endpoint).
+      // On cache miss this returns borzoEligible:false (standard shipping) with zero latency.
+      const eligibilityResult = await getDeliveryEligibilityCacheOnly(customerInfo.address.pincode);
       isExpressAvailable = eligibilityResult.borzoEligible;
       computedExpressCharge = eligibilityResult.extraCharge * 100; // convert to paise
     }

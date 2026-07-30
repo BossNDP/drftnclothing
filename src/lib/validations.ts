@@ -84,7 +84,9 @@ export const stockCheckSchema = z.object({
 // POST /api/discount/validate Schema
 export const discountValidateSchema = z.object({
   code: z.string().min(1),
-  subtotal: z.number().nonnegative()
+  subtotal: z.number().nonnegative(),
+  email: z.string().email().optional().nullable(),
+  phone: z.string().optional().nullable(),
 });
 
 // POST /api/shipping/calculate Schema

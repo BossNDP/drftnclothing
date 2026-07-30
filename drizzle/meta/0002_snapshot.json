@@ -1,6 +1,6 @@
 {
-  "id": "4400ea10-82a5-4f9c-b2e4-35e958af303c",
-  "prevId": "48f97637-78f3-436c-9eb4-42c161ba5f50",
+  "id": "00000000-0000-0000-0000-000000000002",
+  "prevId": "00000000-0000-0000-0000-000000000001",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -217,6 +217,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "max_discount_amount": {
+          "name": "max_discount_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -416,12 +429,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "razorpay_payment_id": {
-          "name": "razorpay_payment_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "order_status": {
           "name": "order_status",
           "type": "order_status_enum",
@@ -511,6 +518,109 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "payment_method": {
+          "name": "payment_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payment_id": {
+          "name": "payment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_amount": {
+          "name": "booking_amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "courier_name": {
+          "name": "courier_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "courier_provider": {
+          "name": "courier_provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "awb_code": {
+          "name": "awb_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "label_url": {
+          "name": "label_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tracking_url": {
+          "name": "tracking_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_request_id": {
+          "name": "provider_request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "provider_shipment_id": {
+          "name": "provider_shipment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "borzo_order_id": {
+          "name": "borzo_order_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "paid_at": {
+          "name": "paid_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancel_allowed_until": {
+          "name": "cancel_allowed_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hold_expires_at": {
+          "name": "hold_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "zone": {
+          "name": "zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "invoice_number": {
+          "name": "invoice_number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -696,7 +806,45 @@
           "notNull": true,
           "default": "now()"
         },
-        "stock_quantity": {
+        "paired_with": {
+          "name": "paired_with",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weight_grams": {
+          "name": "weight_grams",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "length_cm": {
+          "name": "length_cm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "breadth_cm": {
+          "name": "breadth_cm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "height_cm": {
+          "name": "height_cm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "units_sold": {
+          "name": "units_sold",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "stock": {
           "name": "stock",
           "type": "jsonb",
           "primaryKey": false,
@@ -858,6 +1006,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "phone_verified": {
           "name": "phone_verified",

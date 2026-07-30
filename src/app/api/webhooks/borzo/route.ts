@@ -1,202 +1,123 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { firestoreService } from '@/lib/firestore';
-import { sendDeliveryStatusEmail, sendDeliverySuccessEmail } from '@/lib/email';
-import { sendOrderShippedSMS, sendOutForDeliverySMS, sendDeliveredSMS } from '@/lib/sms';
+import { eq, or } from 'drizzle-orm';
+import { transitionOrderStatus, OrderState } from '@/lib/orchestration/order-state-machine';
+import { writeAuditLog } from '@/lib/orchestration/audit-service';
 
 export async function POST(request: Request) {
+  let eventId = '';
+
   try {
-    // ── STEP 0: Read raw body first (required for HMAC verification) ──────────
-    const rawBody = await request.text();
+    const tokenHeader = request.headers.get('x-dv-auth-token') || request.headers.get('authorization');
+    const expectedToken = process.env.BORZO_WEBHOOK_TOKEN || process.env.BORZO_AUTH_TOKEN;
 
-    // ── STEP 1: Signature verification ────────────────────────────────────────
-    // BORZO_CALLBACK_SECRET: set this to the secret you configure in Borzo
-    // Dashboard → Webhooks once you go live. Leave empty in sandbox.
-    const secretKey = process.env.BORZO_CALLBACK_SECRET;
-    const signature = request.headers.get('x-dv-signature') || '';
-
-    if (secretKey) {
-      const crypto = await import('crypto');
-      const expectedSignature = crypto
-        .createHmac('sha256', secretKey)
-        .update(rawBody)
-        .digest('hex');
-
-      const expectedBuf = Buffer.from(expectedSignature, 'utf-8');
-      const sigBuf = Buffer.from(signature, 'utf-8');
-
-      const signaturesMatch =
-        expectedBuf.length === sigBuf.length &&
-        crypto.timingSafeEqual(expectedBuf, sigBuf);
-
-      if (!signaturesMatch) {
-        console.warn('[Borzo Webhook] ❌ HMAC signature mismatch — rejecting request.');
-        return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
-      }
-    } else if (process.env.NODE_ENV === 'production') {
-      // Hard block in production: never allow unsigned Borzo events in prod
-      console.error('[Borzo Webhook] 🚨 BORZO_CALLBACK_SECRET not set in production — refusing all requests!');
-      return NextResponse.json(
-        { error: 'Webhook secret not configured on server. Contact the DRFTN dev team.' },
-        { status: 500 }
-      );
-    } else {
-      console.warn(
-        '[Borzo Webhook] ⚠️  BORZO_CALLBACK_SECRET not set — ' +
-        'signature verification SKIPPED. DO NOT go live like this.'
-      );
+    if (expectedToken && tokenHeader !== expectedToken && tokenHeader !== `Bearer ${expectedToken}`) {
+      return NextResponse.json({ error: 'Unauthorized Borzo Webhook token' }, { status: 401 });
     }
 
-    const payload = JSON.parse(rawBody);
-    console.log('[Borzo Webhook Received]', JSON.stringify(payload, null, 2));
+    const payload = await request.json();
+    const orderData = payload.order || payload;
+    const borzoOrderId = String(orderData.order_id || orderData.id || '');
+    const status = (orderData.status || payload.event_type || '').toLowerCase();
 
-    // Borzo typical fields: payload.delivery.client_order_number or payload.order.matter
-    const orderNumber = payload.order_number || payload.order?.matter?.replace('Streetwear Order ', '') || '';
-    const trackingNumber = payload.tracking_number || payload.order?.id || '';
-    const status = payload.status || payload.order?.status || 'active';
-
-    if (!orderNumber && !trackingNumber) {
-      return NextResponse.json({ error: 'Missing order_number or tracking_number' }, { status: 400 });
+    if (!borzoOrderId) {
+      return NextResponse.json({ error: 'Missing borzo order_id' }, { status: 400 });
     }
 
-    // Find the corresponding order in Postgres to get the absolute orderId
-    let order: any = null;
-    if (orderNumber) {
-      const [found] = await db
-        .select()
-        .from(schema.orders)
-        .where(eq(schema.orders.order_number, orderNumber))
-        .limit(1);
-      order = found;
+    eventId = `borzo_${borzoOrderId}_${status}_${payload.created_at || Date.now()}`;
+
+    // Idempotency check
+    const [existingEvent] = await db
+      .select()
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.event_id, eventId))
+      .limit(1);
+
+    if (existingEvent && existingEvent.processed) {
+      return NextResponse.json({ success: true, message: 'Borzo event already processed' });
     }
 
-    if (!order && trackingNumber) {
-      const [found] = await db
-        .select()
-        .from(schema.orders)
-        .where(eq(schema.orders.tracking_number, trackingNumber))
-        .limit(1);
-      order = found;
+    if (!existingEvent) {
+      await db.insert(schema.webhookEvents).values({
+        provider: 'borzo',
+        event_type: status,
+        event_id: eventId,
+        payload,
+        processed: false,
+      });
     }
+
+    // Query order from Neon DB
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(
+        or(
+          eq(schema.orders.borzo_order_id, borzoOrderId),
+          eq(schema.orders.provider_shipment_id, borzoOrderId)
+        )
+      )
+      .limit(1);
 
     if (!order) {
-      console.warn(`[Borzo Webhook] Order not found for orderNumber: ${orderNumber}, tracking: ${trackingNumber}`);
+      console.warn(`[Borzo Webhook] Order not found for Borzo Order ID: ${borzoOrderId}`);
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Map Borzo status string to user facing status label
-    let statusLabel = 'In Transit';
-    if (status === 'draft') statusLabel = 'Shipment Drafted';
-    if (status === 'new') statusLabel = 'Courier Assigned';
-    if (status === 'active') statusLabel = 'Out for Delivery';
-    if (status === 'delayed') statusLabel = 'Delayed';
-    if (status === 'completed') {
-      statusLabel = 'Delivered';
-      // Also update Postgres order status
-      await db
-        .update(schema.orders)
-        .set({ order_status: 'delivered', updated_at: new Date() })
-        .where(eq(schema.orders.id, order.id));
-    }
-    if (status === 'canceled') {
-      statusLabel = 'Cancelled';
-      await db
-        .update(schema.orders)
-        .set({ order_status: 'cancelled', updated_at: new Date() })
-        .where(eq(schema.orders.id, order.id));
+    let targetState: OrderState | null = null;
+    if (status.includes('courier_assigned') || status.includes('active') || status.includes('pickup')) {
+      targetState = 'IN_TRANSIT';
+    } else if (status.includes('delivering') || status.includes('courier_arrived')) {
+      targetState = 'OUT_FOR_DELIVERY';
+    } else if (status.includes('completed') || status.includes('delivered')) {
+      targetState = 'DELIVERED';
     }
 
-    // Update Firestore order_tracking document in-place
-    await firestoreService.setDoc('order_tracking', order.id, {
+    await db.insert(schema.shipmentEvents).values({
       order_id: order.id,
-      order_number: order.order_number,
-      courier_provider: 'borzo',
-      tracking_number: trackingNumber || order.tracking_number || '',
-      status: status,
-      status_label: statusLabel,
-      updated_at: new Date().toISOString(),
+      status,
+      courier: 'Borzo Express',
+      location: orderData.courier?.address || 'Bangalore',
+      description: `Borzo status update: ${status}`,
+      event_timestamp: new Date(),
+      raw_data: payload,
     });
 
-    // Fan out status email alerts to customers
-    try {
-      if (status === 'new') {
-        sendDeliveryStatusEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          status: 'shipped',
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: 'Borzo Express',
-          trackingNumber: trackingNumber || order.tracking_number,
-        }).catch((err) => console.error('Failed to send shipped status email:', err));
-        // SMS: Borzo courier assigned / shipped
-        if (order.customer_phone) {
-          sendOrderShippedSMS({
-            phone: order.customer_phone,
-            orderNumber: order.order_number,
-            courierPartner: 'Borzo Express',
-            trackingNumber: trackingNumber || order.tracking_number || '',
-          }).catch((err) => console.error('[Fast2SMS] Borzo shipped SMS failed:', err));
-        }
-      } else if (status === 'active') {
-        sendDeliveryStatusEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          status: 'out_for_delivery',
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: 'Borzo Express',
-          trackingNumber: trackingNumber || order.tracking_number,
-        }).catch((err) => console.error('Failed to send out-for-delivery status email:', err));
-        // SMS: Borzo active = out for delivery
-        if (order.customer_phone) {
-          sendOutForDeliverySMS({
-            phone: order.customer_phone,
-            orderNumber: order.order_number,
-          }).catch((err) => console.error('[Fast2SMS] Borzo OFD SMS failed:', err));
-        }
-      } else if (status === 'completed') {
-        sendDeliverySuccessEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: 'Borzo Express',
-          trackingNumber: trackingNumber || order.tracking_number,
-        }).catch((err) => console.error('Failed to send delivery success email:', err));
-        // SMS: Borzo completed = delivered
-        if (order.customer_phone) {
-          sendDeliveredSMS({
-            phone: order.customer_phone,
-            orderNumber: order.order_number,
-          }).catch((err) => console.error('[Fast2SMS] Borzo delivered SMS failed:', err));
-        }
-      } else if (status === 'canceled') {
-        sendDeliveryStatusEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          status: 'cancelled',
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: 'Borzo Express',
-          trackingNumber: trackingNumber || order.tracking_number,
-        }).catch((err) => console.error('Failed to send cancelled status email:', err));
+    if (targetState && order.order_status !== targetState) {
+      try {
+        await transitionOrderStatus({
+          orderId: order.id,
+          currentStatus: order.order_status,
+          targetState,
+          reason: `Borzo webhook update: ${status}`,
+        });
+      } catch (fsmErr) {
+        console.warn(`[Borzo Webhook] Could not transition order ${order.order_number}:`, fsmErr);
       }
-    } catch (emailFanoutErr) {
-      console.error('Failed to dispatch status email fanout:', emailFanoutErr);
     }
 
-    console.log(`[Borzo Webhook] Updated tracking for order ${order.order_number} to ${statusLabel}`);
-    return NextResponse.json({ success: true, processed: true });
+    await db
+      .update(schema.webhookEvents)
+      .set({ processed: true, processed_at: new Date() })
+      .where(eq(schema.webhookEvents.event_id, eventId));
 
-  } catch (error: any) {
-    console.error('Borzo Webhook processing error:', error);
-    return NextResponse.json({ error: 'Internal server error processing webhook' }, { status: 500 });
+    await writeAuditLog({
+      orderId: order.id,
+      action: 'WEBHOOK:BORZO_STATUS_UPDATED',
+      details: { status, borzoOrderId },
+    });
+
+    return NextResponse.json({ success: true, processed: true });
+  } catch (err: any) {
+    console.error('[Borzo Webhook Error]:', err);
+    if (eventId) {
+      await db
+        .update(schema.webhookEvents)
+        .set({ error: err?.message || String(err) })
+        .where(eq(schema.webhookEvents.event_id, eventId))
+        .catch(() => {});
+    }
+    return NextResponse.json({ error: 'Borzo webhook error' }, { status: 500 });
   }
 }

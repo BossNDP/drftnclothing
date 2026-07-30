@@ -9,9 +9,10 @@ const hasCredentials =
 
 if (hasCredentials) {
   try {
-    const { initializeApp, cert, getApps } = require('firebase-admin/app');
+    const { initializeApp, cert, getApps, getApp } = require('firebase-admin/app');
     const { getFirestore } = require('firebase-admin/firestore');
 
+    let app;
     if (getApps().length === 0) {
       let privateKey = process.env.FIREBASE_PRIVATE_KEY || '';
       if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
@@ -19,26 +20,26 @@ if (hasCredentials) {
       }
       privateKey = privateKey.replace(/\\n/g, '\n');
 
-      initializeApp({
+      app = initializeApp({
         credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           privateKey,
         }),
       });
+    } else {
+      app = getApp();
     }
-      const dbId = process.env.FIREBASE_DATABASE_ID;
-      // 'default' and '(default)' are NOT valid custom database IDs —
-      // the default Firestore database is only accessible via getFirestore() with no args.
-      const isDefaultDb = !dbId || dbId === 'default' || dbId === '(default)';
-      db = isDefaultDb ? getFirestore() : getFirestore(dbId);
-      console.log(`[Firestore] Real client initialized successfully (Database: ${isDefaultDb ? '(default)' : dbId}).`);
-    } catch (err) {
-      console.error('[Firestore] Failed to initialize real client, falling back to mock:', err);
-    }
-  } else {
-    console.log('[Firestore] Credentials absent. Running in Redis-based sandbox mock mode.');
+
+    const dbId = process.env.FIREBASE_DATABASE_ID || 'default';
+    db = getFirestore(app, dbId);
+    console.log(`[Firestore] Real client initialized successfully (Project: ${process.env.FIREBASE_PROJECT_ID}, Database: ${dbId}, Path: ${(db as any).formattedName}).`);
+  } catch (err) {
+    console.error('[Firestore] Failed to initialize real client, falling back to mock:', err);
   }
+} else {
+  console.log('[Firestore] Credentials absent. Running in Redis-based sandbox mock mode.');
+}
 
 export interface QueryCondition {
   field: string;

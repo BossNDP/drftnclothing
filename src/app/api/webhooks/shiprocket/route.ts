@@ -1,201 +1,138 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq } from 'drizzle-orm';
-import { firestoreService } from '@/lib/firestore';
-import { sendDeliveryStatusEmail, sendDeliverySuccessEmail } from '@/lib/email';
-import { sendOrderShippedSMS, sendOutForDeliverySMS, sendDeliveredSMS } from '@/lib/sms';
+import { eq, or } from 'drizzle-orm';
+import { transitionOrderStatus, OrderState } from '@/lib/orchestration/order-state-machine';
+import { writeAuditLog } from '@/lib/orchestration/audit-service';
 
 export async function POST(request: Request) {
+  let eventId = '';
+
   try {
-    // ── STEP 0: Read raw body first (required for HMAC verification) ──────────
-    const rawBody = await request.text();
+    const tokenHeader = request.headers.get('x-shiprocket-token') || request.headers.get('authorization');
+    const expectedToken = process.env.SHIPROCKET_WEBHOOK_TOKEN;
 
-    // ── STEP 1: Signature verification ────────────────────────────────────────
-    // SHIPROCKET_WEBHOOK_SECRET: get this from Shiprocket Dashboard → Settings →
-    // API → Webhook Secret once you go live. Leave empty in sandbox.
-    const secret = process.env.SHIPROCKET_WEBHOOK_SECRET;
-    const signature = request.headers.get('x-shiprocket-hmac-sha256') || '';
-
-    if (secret) {
-      const crypto = await import('crypto');
-      const expected = crypto
-        .createHmac('sha256', secret)
-        .update(rawBody)
-        .digest('hex');
-
-      const expectedBuf = Buffer.from(expected, 'utf-8');
-      const sigBuf = Buffer.from(signature, 'utf-8');
-
-      const signaturesMatch =
-        expectedBuf.length === sigBuf.length &&
-        crypto.timingSafeEqual(expectedBuf, sigBuf);
-
-      if (!signaturesMatch) {
-        console.warn('[Shiprocket Webhook] ❌ HMAC signature mismatch — rejecting request.');
-        return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
-      }
-    } else {
-      console.warn(
-        '[Shiprocket Webhook] ⚠️  SHIPROCKET_WEBHOOK_SECRET not set — ' +
-        'signature verification SKIPPED. DO NOT go live like this.'
-      );
+    if (expectedToken && tokenHeader !== expectedToken && tokenHeader !== `Bearer ${expectedToken}`) {
+      return NextResponse.json({ error: 'Unauthorized Shiprocket Webhook token' }, { status: 401 });
     }
 
-    const payload = JSON.parse(rawBody);
-    console.log('[Shiprocket Webhook Received]', JSON.stringify(payload, null, 2));
+    const payload = await request.json();
+    const { order_id, awb, current_status, courier_name, location, etd } = payload;
 
-    const orderNumber = payload.channel_order_id || payload.order_id || '';
-    const awb = payload.awb || payload.awb_code || '';
-    const status = payload.status || payload.current_status || '';
-
-    if (!orderNumber && !awb) {
-      return NextResponse.json({ error: 'Missing order number or awb reference' }, { status: 400 });
+    if (!order_id && !awb) {
+      return NextResponse.json({ error: 'Missing order_id or awb' }, { status: 400 });
     }
 
-    // Find corresponding order in Postgres
-    let order: any = null;
-    if (orderNumber) {
-      const [found] = await db
-        .select()
-        .from(schema.orders)
-        .where(eq(schema.orders.order_number, orderNumber))
-        .limit(1);
-      order = found;
+    eventId = `shiprocket_${order_id || awb}_${current_status}_${payload.timestamp || Date.now()}`;
+
+    // Idempotency check via webhook_events table
+    const [existingEvent] = await db
+      .select()
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.event_id, eventId))
+      .limit(1);
+
+    if (existingEvent && existingEvent.processed) {
+      return NextResponse.json({ success: true, message: 'Event already processed' });
     }
 
-    if (!order && awb) {
-      const [found] = await db
-        .select()
-        .from(schema.orders)
-        .where(eq(schema.orders.tracking_number, awb))
-        .limit(1);
-      order = found;
+    if (!existingEvent) {
+      await db.insert(schema.webhookEvents).values({
+        provider: 'shiprocket',
+        event_type: current_status || 'STATUS_UPDATE',
+        event_id: eventId,
+        payload,
+        processed: false,
+      });
     }
+
+    // Find Order in Neon DB
+    const [order] = await db
+      .select()
+      .from(schema.orders)
+      .where(
+        or(
+          order_id ? eq(schema.orders.order_number, String(order_id)) : undefined,
+          order_id ? eq(schema.orders.shiprocket_order_id, String(order_id)) : undefined,
+          awb ? eq(schema.orders.awb_code, String(awb)) : undefined
+        )
+      )
+      .limit(1);
 
     if (!order) {
-      console.warn(`[Shiprocket Webhook] Order not found for orderNumber: ${orderNumber}, awb: ${awb}`);
+      console.warn(`[Shiprocket Webhook] Order not found for order_id: ${order_id}, awb: ${awb}`);
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Map Shiprocket status string to user facing status label
-    let statusLabel = status || 'In Transit';
-    const normalizedStatus = status.toLowerCase();
-    
-    if (normalizedStatus.includes('assigned')) statusLabel = 'AWB Assigned';
-    if (normalizedStatus.includes('pickup scheduled')) statusLabel = 'Pickup Scheduled';
-    if (normalizedStatus.includes('out for delivery')) statusLabel = 'Out for Delivery';
-    if (normalizedStatus.includes('delivered')) {
-      statusLabel = 'Delivered';
-      // Also update Postgres order status
-      await db
-        .update(schema.orders)
-        .set({ order_status: 'delivered', updated_at: new Date() })
-        .where(eq(schema.orders.id, order.id));
-    }
-    if (normalizedStatus.includes('cancelled') || normalizedStatus.includes('canceled')) {
-      statusLabel = 'Cancelled';
-      await db
-        .update(schema.orders)
-        .set({ order_status: 'cancelled', updated_at: new Date() })
-        .where(eq(schema.orders.id, order.id));
+    // Map Shiprocket status to OrderState
+    const rawStatus = (current_status || '').toUpperCase();
+    let targetState: OrderState | null = null;
+
+    if (rawStatus.includes('PICKED UP') || rawStatus.includes('IN TRANSIT') || rawStatus.includes('SHIPPED')) {
+      targetState = 'IN_TRANSIT';
+    } else if (rawStatus.includes('OUT FOR DELIVERY')) {
+      targetState = 'OUT_FOR_DELIVERY';
+    } else if (rawStatus.includes('DELIVERED')) {
+      targetState = 'DELIVERED';
     }
 
-    // Update Firestore order_tracking document in-place
-    await firestoreService.setDoc('order_tracking', order.id, {
+    // Write shipment event
+    await db.insert(schema.shipmentEvents).values({
       order_id: order.id,
-      order_number: order.order_number,
-      courier_provider: 'shiprocket',
-      tracking_number: awb || order.tracking_number || '',
-      status: status,
-      status_label: statusLabel,
-      updated_at: new Date().toISOString(),
+      status: current_status || 'UPDATED',
+      courier: courier_name || order.courier_name || 'Shiprocket Partner',
+      location: location || null,
+      description: payload.scans?.[0]?.location || current_status,
+      event_timestamp: new Date(),
+      raw_data: payload,
     });
 
-    // Fan out status email alerts to customers
-    try {
-      if (normalizedStatus.includes('delivered')) {
-        sendDeliverySuccessEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: order.courier_partner || 'Shiprocket Partner',
-          trackingNumber: awb || order.tracking_number,
-        }).catch((err) => console.error('Failed to send Shiprocket delivered email:', err));
-        // SMS: delivered
-        if (order.customer_phone) {
-          sendDeliveredSMS({
-            phone: order.customer_phone,
-            orderNumber: order.order_number,
-          }).catch((err) => console.error('[Fast2SMS] Delivered SMS failed:', err));
-        }
-      } else if (normalizedStatus.includes('cancelled') || normalizedStatus.includes('canceled')) {
-        sendDeliveryStatusEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          status: 'cancelled',
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: order.courier_partner || 'Shiprocket Partner',
-          trackingNumber: awb || order.tracking_number,
-        }).catch((err) => console.error('Failed to send Shiprocket cancelled email:', err));
-      } else if (normalizedStatus.includes('out for delivery')) {
-        sendDeliveryStatusEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          status: 'out_for_delivery',
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: order.courier_partner || 'Shiprocket Partner',
-          trackingNumber: awb || order.tracking_number,
-        }).catch((err) => console.error('Failed to send Shiprocket out-for-delivery email:', err));
-        // SMS: out for delivery
-        if (order.customer_phone) {
-          sendOutForDeliverySMS({
-            phone: order.customer_phone,
-            orderNumber: order.order_number,
-          }).catch((err) => console.error('[Fast2SMS] OFD SMS failed:', err));
-        }
-      } else if (
-        normalizedStatus.includes('shipped') ||
-        normalizedStatus.includes('in transit') ||
-        normalizedStatus.includes('pickup scheduled') ||
-        normalizedStatus.includes('assigned') ||
-        normalizedStatus.includes('picked up')
-      ) {
-        sendDeliveryStatusEmail({
-          orderNumber: order.order_number,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          status: 'shipped',
-          items: order.items,
-          totalPaise: order.total,
-          courierPartner: order.courier_partner || 'Shiprocket Partner',
-          trackingNumber: awb || order.tracking_number,
-        }).catch((err) => console.error('Failed to send Shiprocket shipped email:', err));
-        // SMS: shipped
-        if (order.customer_phone) {
-          sendOrderShippedSMS({
-            phone: order.customer_phone,
-            orderNumber: order.order_number,
-            courierPartner: order.courier_partner || 'Shiprocket Partner',
-            trackingNumber: awb || order.tracking_number || '',
-          }).catch((err) => console.error('[Fast2SMS] Shipped SMS failed:', err));
-        }
+    // Update order fields
+    await db
+      .update(schema.orders)
+      .set({
+        awb_code: awb || order.awb_code,
+        courier_name: courier_name || order.courier_name,
+        tracking_number: awb || order.tracking_number,
+        updated_at: new Date(),
+      })
+      .where(eq(schema.orders.id, order.id));
+
+    // Transition OrderState if state progression occurred
+    if (targetState && order.order_status !== targetState) {
+      try {
+        await transitionOrderStatus({
+          orderId: order.id,
+          currentStatus: order.order_status,
+          targetState,
+          reason: `Shiprocket webhook status update: ${current_status}`,
+        });
+      } catch (fsmErr) {
+        console.warn(`[Shiprocket Webhook] Could not transition order ${order.order_number}:`, fsmErr);
       }
-    } catch (emailFanoutErr) {
-      console.error('Failed to dispatch Shiprocket status email fanout:', emailFanoutErr);
     }
 
-    console.log(`[Shiprocket Webhook] Updated tracking for order ${order.order_number} to ${statusLabel}`);
-    return NextResponse.json({ success: true, processed: true });
+    await db
+      .update(schema.webhookEvents)
+      .set({ processed: true, processed_at: new Date() })
+      .where(eq(schema.webhookEvents.event_id, eventId));
 
-  } catch (error: any) {
-    console.error('Shiprocket Webhook processing error:', error);
-    return NextResponse.json({ error: 'Internal server error processing webhook' }, { status: 500 });
+    await writeAuditLog({
+      orderId: order.id,
+      action: 'WEBHOOK:SHIPROCKET_STATUS_UPDATED',
+      details: { current_status, awb, courier_name },
+    });
+
+    return NextResponse.json({ success: true, processed: true });
+  } catch (err: any) {
+    console.error('[Shiprocket Webhook Error]:', err);
+    if (eventId) {
+      await db
+        .update(schema.webhookEvents)
+        .set({ error: err?.message || String(err) })
+        .where(eq(schema.webhookEvents.event_id, eventId))
+        .catch(() => {});
+    }
+    return NextResponse.json({ error: 'Shiprocket webhook processing error' }, { status: 500 });
   }
 }

@@ -28,11 +28,11 @@ export async function GET(request: Request) {
         name: schema.users.name,
         email: schema.users.email,
         phone: schema.users.phone,
-        lastActiveAt: schema.users.lastActiveAt,
+        lastActiveAt: schema.users.last_active_at,
       })
       .from(schema.users)
-      .where(gte(schema.users.lastActiveAt, fiveMinutesAgo))
-      .orderBy(schema.users.lastActiveAt);
+      .where(gte(schema.users.last_active_at, fiveMinutesAgo))
+      .orderBy(schema.users.last_active_at);
 
     const totalActiveCount = activeUsers.length;
 

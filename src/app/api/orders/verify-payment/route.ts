@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+export const runtime = 'nodejs';
 import crypto from 'crypto';
 import { db } from '@/db';
 import * as schema from '@/db/schema';

@@ -137,3 +137,54 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
 
   return result;
 }
+
+/**
+ * getDeliveryEligibilityCacheOnly
+ *
+ * CHECKOUT-SAFE variant of checkDeliveryEligibility.
+ * Reads ONLY from Redis cache — never calls the Borzo API.
+ *
+ * On cache miss: returns safe defaults (borzoEligible: false, standard shipping).
+ * The caller (orders/create) must not block checkout on a live Borzo API call.
+ *
+ * The cache is populated by the /api/shipping/serviceability endpoint, which the
+ * frontend calls when the customer enters their address before clicking Pay.
+ * By checkout time the cache is almost always warm.
+ */
+export async function getDeliveryEligibilityCacheOnly(pincode: string): Promise<EligibilityResult> {
+  const cleanPincode = pincode.trim();
+
+  // Determine standard delivery days without any external call
+  let estimatedStandardDays = 5;
+  if (cleanPincode.startsWith('560')) estimatedStandardDays = 2;
+  else if (cleanPincode.startsWith('5')) estimatedStandardDays = 3;
+
+  const safeDefault: EligibilityResult = {
+    borzoEligible: false,
+    extraCharge: 0,
+    shiprocketAvailable: true,
+    estimatedStandardDays,
+  };
+
+  if (!/^\d{6}$/.test(cleanPincode)) return safeDefault;
+
+  const cacheKey = `delivery:pincode:${cleanPincode}`;
+
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      return parsed as EligibilityResult;
+    }
+  } catch (err) {
+    console.error('[Shipping Eligibility] Redis cache read failed (cache-only path):', err);
+  }
+
+  // Cache miss — return safe default. Checkout will use standard shipping.
+  // The live Borzo check runs at the serviceability step, not here.
+  console.log(
+    `[Shipping Eligibility] Cache MISS (cache-only path) for pincode ${cleanPincode}. Defaulting to standard shipping.`
+  );
+  return safeDefault;
+}
+

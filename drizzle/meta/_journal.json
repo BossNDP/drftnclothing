@@ -15,6 +15,20 @@
       "when": 1783777182560,
       "tag": "0001_icy_deathstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785388690261,
+      "tag": "0002_schema_update",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1785389327059,
+      "tag": "0003_naive_korvac",
+      "breakpoints": true
     }
   ]
 }

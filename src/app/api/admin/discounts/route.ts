@@ -9,6 +9,7 @@ const discountCodeSchema = z.object({
   discount_type: z.enum(['percent', 'flat']),
   discount_value: z.number().int().positive(),
   min_order_value: z.number().int().nonnegative().default(0),
+  max_discount_amount: z.number().int().positive().nullable().optional(),
   usage_limit: z.number().int().positive().nullable().optional(),
   is_active: z.boolean().default(true),
   expires_at: z.string().nullable().optional(),
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid coupon inputs', details: validation.error.format() }, { status: 400 });
     }
 
-    const { code, discount_type, discount_value, min_order_value, usage_limit, is_active, expires_at } = validation.data;
+    const { code, discount_type, discount_value, min_order_value, max_discount_amount, usage_limit, is_active, expires_at } = validation.data;
     const cleanCode = code.toUpperCase().trim();
 
     const [newDiscount] = await db
@@ -46,10 +47,12 @@ export async function POST(request: Request) {
         discount_type,
         discount_value,
         min_order_value,
+        max_discount_amount: max_discount_amount || null,
         usage_limit: usage_limit || null,
         used_count: 0,
         is_active,
         expires_at: expires_at ? new Date(expires_at) : null,
+        updated_at: new Date(),
       })
       .returning();
 
@@ -76,7 +79,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Invalid coupon updates', details: validation.error.format() }, { status: 400 });
     }
 
-    const updates: any = { ...validation.data };
+    const updates: any = { ...validation.data, updated_at: new Date() };
     if (updates.code) updates.code = updates.code.toUpperCase().trim();
     if (updates.expires_at !== undefined) updates.expires_at = updates.expires_at ? new Date(updates.expires_at) : null;
 

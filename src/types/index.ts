@@ -99,6 +99,7 @@ export interface DiscountCode {
   discount_type: 'percent' | 'flat';
   discount_value: number;
   min_order_value: number;
+  max_discount_amount?: number;
   usage_limit?: number;
   used_count: number;
   is_active: boolean;

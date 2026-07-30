@@ -1,20 +1,26 @@
 import { NextResponse } from 'next/server';
+export const runtime = 'nodejs';
 import crypto from 'crypto';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
 import { eq } from 'drizzle-orm';
-import { razorpay } from '@/lib/razorpay';
-import { sendRefundEmail, sendOrderSuccessEmail, sendDepositConfirmationEmail } from '@/lib/email';
-import { firestoreService } from '@/lib/firestore';
+import { writeAuditLog } from '@/lib/orchestration/audit-service';
 import { confirmAndWriteOrder } from '@/lib/order-db-helper';
-import { sendOrderConfirmationSMS } from '@/lib/sms';
+import { firestoreService } from '@/lib/firestore';
 
-const MAKE_WHATSAPP_WEBHOOK = process.env.MAKE_WEBHOOK_URL || '';
-
+/**
+ * Razorpay Webhook Handler
+ *
+ * PRODUCTION SAFETY:
+ * - Signature verified with timing-safe compare before any DB access.
+ * - Idempotent: webhook_events table prevents double-processing.
+ * - Convergent: calls the same confirmAndWriteOrder() as the browser verify-payment
+ *   path. If the browser already confirmed, the shared function returns the existing
+ *   order. If the webhook arrives first, it creates the order from the Firestore
+ *   pending_checkout. Either way, exactly one order is created.
+ */
 export async function POST(request: Request) {
-  let checkout: any = null;
-  let order: any = null;
-  let payment: any = null;
+  let eventId = '';
 
   try {
     const rawBody = await request.text();
@@ -25,7 +31,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Signature verification parameters missing' }, { status: 400 });
     }
 
-    // Verify signature
+    // 1. Verify HMAC signature (timing-safe)
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(rawBody)
@@ -34,259 +40,167 @@ export async function POST(request: Request) {
     const expectedBuf = Buffer.from(expectedSignature, 'utf-8');
     const sigBuf = Buffer.from(signature, 'utf-8');
 
-    if (expectedBuf.length !== sigBuf.length) {
-      console.warn('[Razorpay Webhook] Invalid webhook signature length!');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
-    }
-
-    const isValid = crypto.timingSafeEqual(expectedBuf, sigBuf);
-
-    if (!isValid) {
-      console.warn('[Razorpay Webhook] Invalid webhook signature detected!');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
+    if (expectedBuf.length !== sigBuf.length || !crypto.timingSafeEqual(expectedBuf, sigBuf)) {
+      console.warn('[Razorpay Webhook] Invalid signature!');
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
     }
 
     const payload = JSON.parse(rawBody);
     const event = payload.event;
-    payment = payload.payload.payment.entity;
-    const razorpayOrderId = payment.order_id;
+    eventId = payload.event_id || `${event}_${payload.created_at || Date.now()}`;
+    const payment = payload.payload?.payment?.entity;
 
+    if (!payment) {
+      return NextResponse.json({ success: true, message: 'No payment entity in webhook payload' });
+    }
+
+    // 2. Idempotency: check if this webhook event was already processed
+    const [existingEvent] = await db
+      .select()
+      .from(schema.webhookEvents)
+      .where(eq(schema.webhookEvents.event_id, eventId))
+      .limit(1);
+
+    if (existingEvent?.processed) {
+      return NextResponse.json({ success: true, message: 'Webhook event already processed' });
+    }
+
+    // 3. Record webhook event (mark unprocessed initially)
+    if (!existingEvent) {
+      await db.insert(schema.webhookEvents).values({
+        provider: 'razorpay',
+        event_type: event,
+        event_id: eventId,
+        payload,
+        processed: false,
+      }).catch(() => {}); // Best-effort; unique constraint guards idempotency
+    }
+
+    const razorpayOrderId = payment.order_id;
     if (!razorpayOrderId) {
       return NextResponse.json({ success: true, message: 'No order ID in payment entity' });
     }
 
-    // 1. Try to find the corresponding order in Postgres Neon
-    const [foundOrder] = await db
-      .select()
-      .from(schema.orders)
-      .where(eq(schema.orders.razorpay_order_id, razorpayOrderId))
-      .limit(1);
-    order = foundOrder;
+    if (event === 'payment.captured' || event === 'order.paid') {
+      // ── Fast path: order already confirmed by browser callback ──
+      const [existingNeonOrder] = await db
+        .select()
+        .from(schema.orders)
+        .where(eq(schema.orders.razorpay_order_id, razorpayOrderId))
+        .limit(1);
 
-    // 2. If not found in Neon, check Firestore pending checkouts
-    if (!order) {
-      const checkouts = await firestoreService.queryDocs('pending_checkouts', {
-        where: [{ field: 'razorpay_order_id', op: '==', value: razorpayOrderId }]
+      if (existingNeonOrder && existingNeonOrder.payment_status !== 'pending') {
+        // Order already confirmed — nothing to do
+        await db
+          .update(schema.webhookEvents)
+          .set({ processed: true, processed_at: new Date() })
+          .where(eq(schema.webhookEvents.event_id, eventId));
+
+        await writeAuditLog({
+          orderId: existingNeonOrder.id,
+          action: 'WEBHOOK:RAZORPAY_ALREADY_CONFIRMED_IDEMPOTENT',
+          details: { eventId, paymentId: payment.id },
+        });
+
+        return NextResponse.json({ success: true, processed: true, message: 'Already confirmed' });
+      }
+
+      // ── Fallback path: browser hasn't confirmed yet — look up Firestore pending checkout ──
+      // The internal order UUID is stored in the Razorpay order's notes.order_id field,
+      // which Razorpay propagates to the payment entity notes.
+      let internalOrderId: string | null =
+        payment.notes?.order_id ||
+        payload.payload?.order?.entity?.notes?.order_id ||
+        null;
+
+      let checkout: any = null;
+
+      if (internalOrderId) {
+        // Direct lookup by UUID (fastest path)
+        checkout = await firestoreService.getDoc('pending_checkouts', internalOrderId);
+      }
+
+      if (!checkout) {
+        // Fallback: query Firestore by razorpay_order_id field
+        const results = await firestoreService.queryDocs('pending_checkouts', {
+          where: [{ field: 'razorpay_order_id', op: '==', value: razorpayOrderId }],
+        });
+        checkout = results[0] || null;
+      }
+
+      if (!checkout) {
+        console.warn(
+          `[Razorpay Webhook] No pending checkout found for Razorpay Order ID: ${razorpayOrderId}. Payment ID: ${payment.id}`
+        );
+        // Log and return 200 so Razorpay stops retrying — manual review needed
+        await writeAuditLog({
+          orderId: 'UNKNOWN',
+          action: 'WEBHOOK:RAZORPAY_PENDING_CHECKOUT_NOT_FOUND',
+          details: { razorpayOrderId, paymentId: payment.id, eventId },
+        });
+        return NextResponse.json({ success: true, message: 'Pending checkout not found; logged for review' });
+      }
+
+      // ── Confirm the order using the shared function ──
+      // confirmAndWriteOrder is idempotent — if the browser just committed,
+      // the function returns the existing order without inserting again.
+      const confirmedOrder = await confirmAndWriteOrder(checkout, payment.id);
+
+      if (!confirmedOrder) {
+        return NextResponse.json({ error: 'Order confirmation failed' }, { status: 500 });
+      }
+
+      // Update Firestore checkout status
+      await firestoreService.updateDoc('pending_checkouts', checkout.id, {
+        status: 'paid',
+        payment_id: payment.id,
+        updated_at: new Date().toISOString(),
+      }).catch(() => {}); // Non-critical
+
+      // Mark webhook event as processed
+      await db
+        .update(schema.webhookEvents)
+        .set({ processed: true, processed_at: new Date() })
+        .where(eq(schema.webhookEvents.event_id, eventId));
+
+      await writeAuditLog({
+        orderId: confirmedOrder.id,
+        action: 'WEBHOOK:RAZORPAY_PAYMENT_CAPTURED',
+        details: { eventId, paymentId: payment.id, amount: payment.amount },
       });
-      if (checkouts.length > 0) {
-        checkout = checkouts[0];
-      }
-    }
 
-    if (!order && !checkout) {
-      console.warn(`[Razorpay Webhook] Order or Checkout not found for Razorpay Order ID: ${razorpayOrderId}`);
-      return NextResponse.json({ error: 'Order/Checkout not found' }, { status: 404 });
-    }
-
-    // Handle Captured Payment
-    if (event === 'payment.captured') {
-      if (order && order.payment_status === 'paid') {
-        return NextResponse.json({ success: true, message: 'Order already completed (idempotency check passed)' });
-      }
-
-      if (checkout && checkout.status === 'paid') {
-        return NextResponse.json({ success: true, message: 'Checkout already completed (idempotency check passed)' });
-      }
-
-      // Verify payment amount matches expected amount
-      const amountReceived = payment.amount;
-      const expectedAmount = (order || checkout).payment_type === 'cod_with_deposit' ? 20000 : (order || checkout).total;
-      
-      if (amountReceived !== expectedAmount) {
-        console.error(`[FRAUD ALERT] Webhook payment amount ${amountReceived} does not match expected total ${expectedAmount}! Order: ${(order || checkout).order_number}`);
-        
-        if (order) {
-          await db
-            .update(schema.orders)
-            .set({
-              order_status: 'payment_mismatch',
-              payment_status: 'pending',
-              payment_id: payment.id,
-              updated_at: new Date(),
-            })
-            .where(eq(schema.orders.id, order.id));
-        } else {
-          await firestoreService.updateDoc('pending_checkouts', checkout.id, {
-            status: 'payment_mismatch',
-            payment_id: payment.id,
-            updated_at: new Date().toISOString(),
-          });
-        }
-
-        return NextResponse.json({ success: true, message: 'Payment mismatch handled.' });
-      }
-
-      let orderResult: any;
+    } else if (event === 'payment.failed') {
+      // Mark payment as failed on the existing Neon order if it exists
+      const [order] = await db
+        .select()
+        .from(schema.orders)
+        .where(eq(schema.orders.razorpay_order_id, razorpayOrderId))
+        .limit(1);
 
       if (order) {
-        // Order exists in Neon, just update it to paid
-        const [updatedOrder] = await db
-          .update(schema.orders)
-          .set({
-            payment_status: 'paid',
-            payment_id: payment.id,
-            order_status: 'confirmed',
-            deposit_status: order.payment_type === 'cod_with_deposit' ? 'paid' : null,
-            updated_at: new Date(),
-          })
-          .where(eq(schema.orders.id, order.id))
-          .returning();
-        orderResult = updatedOrder;
-      } else {
-        // Write checkout details to Neon for the first time
-        orderResult = await confirmAndWriteOrder(checkout, payment.id);
-
-        // Update Firestore status
-        await firestoreService.updateDoc('pending_checkouts', checkout.id, {
-          status: 'paid',
-          payment_id: payment.id,
-          updated_at: new Date().toISOString(),
-        });
-      }
-
-      // Fire Make.com WhatsApp Webhook (Fire-and-forget)
-      const orderRef = orderResult || order || checkout;
-      if (MAKE_WHATSAPP_WEBHOOK && MAKE_WHATSAPP_WEBHOOK.startsWith('http')) {
-        const itemsList = orderRef.items
-          .map((i: any) => `${i.name} (${i.size}) x${i.quantity}`)
-          .join(', ');
-
-        fetch(MAKE_WHATSAPP_WEBHOOK, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            event: 'order_confirmed',
-            order_number: orderRef.order_number,
-            total: orderRef.total,
-            customer_name: orderRef.customer_name,
-            customer_phone: orderRef.customer_phone,
-            items: itemsList,
-          }),
-        }).catch((err) => console.error('Make.com webhook failed:', err));
-      }
-
-      // Fire success email notification
-      if (orderResult) {
-        if (orderResult.payment_type === 'cod_with_deposit') {
-          sendDepositConfirmationEmail({
-            orderNumber: orderResult.order_number,
-            customerName: orderResult.customer_name,
-            customerEmail: orderResult.customer_email,
-            items: orderResult.items as any[],
-            totalPaise: orderResult.total,
-            shippingChargePaise: orderResult.shipping_charge,
-            discountAmountPaise: orderResult.discount_amount || 0,
-            fulfillmentType: orderResult.fulfillment_type,
-            pickupCode: orderResult.pickup_code,
-            shippingAddress: orderResult.shipping_address,
-          }).catch((err) => console.error('Failed to send webhook COD deposit confirmation email:', err));
-        } else {
-          sendOrderSuccessEmail({
-            orderNumber: orderResult.order_number,
-            customerName: orderResult.customer_name,
-            customerEmail: orderResult.customer_email,
-            items: orderResult.items as any[],
-            totalPaise: orderResult.total,
-            shippingChargePaise: orderResult.shipping_charge,
-            discountAmountPaise: orderResult.discount_amount || 0,
-            fulfillmentType: orderResult.fulfillment_type,
-            pickupCode: orderResult.pickup_code,
-            shippingAddress: orderResult.shipping_address,
-          }).catch((err) => console.error('Failed to send webhook order success email:', err));
-        }
-      }
-
-      // Fire Fast2SMS order confirmation (fire-and-forget)
-      const smsPhone = orderResult?.customer_phone || orderRef.customer_phone;
-      if (smsPhone) {
-        sendOrderConfirmationSMS({
-          phone: smsPhone,
-          orderNumber: orderRef.order_number,
-          totalPaise: orderRef.total,
-        }).catch((err) => console.error('[Fast2SMS] Order confirmation SMS failed:', err));
-      }
-
-      console.log(`[Razorpay Webhook] Order ${orderRef.order_number} successfully marked as PAID.`);
-      return NextResponse.json({ success: true, processed: true });
-    }
-
-    // Handle Failed Payment
-    if (event === 'payment.failed') {
-      if (order && order.payment_status === 'pending') {
         await db
           .update(schema.orders)
-          .set({
-            payment_status: 'failed',
-            updated_at: new Date(),
-          })
+          .set({ payment_status: 'failed', order_status: 'PAYMENT_FAILED', updated_at: new Date() })
           .where(eq(schema.orders.id, order.id));
-      } else if (checkout && checkout.status === 'pending') {
-        await firestoreService.updateDoc('pending_checkouts', checkout.id, {
-          status: 'failed',
-          updated_at: new Date().toISOString(),
-        });
       }
-      console.log(`[Razorpay Webhook] Order/Checkout ${(order || checkout).order_number} marked as FAILED.`);
-      return NextResponse.json({ success: true, processed: true });
+
+      await db
+        .update(schema.webhookEvents)
+        .set({ processed: true, processed_at: new Date() })
+        .where(eq(schema.webhookEvents.event_id, eventId));
     }
 
-    return NextResponse.json({ success: true, message: 'Unhandled event type' });
+    return NextResponse.json({ success: true, processed: true });
 
-  } catch (error: any) {
-    console.error('Razorpay Webhook Error:', error);
-
-    const orderRef = order || checkout;
-    if (error.message && error.message.startsWith('OUT_OF_STOCK_REFUND:')) {
-      const productName = error.message.split('OUT_OF_STOCK_REFUND:')[1];
-      try {
-        if (orderRef && orderRef.payment_status !== 'refunded') {
-          const refundAmount = orderRef.payment_type === 'cod_with_deposit' ? 20000 : orderRef.total;
-          
-          if (razorpay) {
-            console.log(`[Webhook AUTO-REFUND] Triggering refund for order ${orderRef.order_number}, amount: ${refundAmount}`);
-            await razorpay.payments.refund(payment.id, {
-              amount: refundAmount,
-              notes: {
-                reason: `Stock sold out before webhook verification completed (late payment for ${productName})`,
-                order_id: orderRef.id,
-                order_number: orderRef.order_number
-              }
-            });
-          }
-          
-          if (order) {
-            await db
-              .update(schema.orders)
-              .set({
-                order_status: 'failed',
-                payment_status: 'refunded',
-                payment_id: payment.id,
-                updated_at: new Date()
-              })
-              .where(eq(schema.orders.id, order.id));
-          } else {
-            await firestoreService.updateDoc('pending_checkouts', checkout.id, {
-              status: 'failed',
-              payment_status: 'refunded',
-              payment_id: payment.id,
-              updated_at: new Date().toISOString(),
-            });
-          }
-
-          sendRefundEmail({
-            orderNumber: orderRef.order_number,
-            customerName: orderRef.customer_name,
-            customerEmail: orderRef.customer_email,
-            productName,
-            refundAmountPaise: refundAmount,
-          });
-        }
-      } catch (refundErr) {
-        console.error('Webhook auto-refund processing failed:', refundErr);
-      }
-      return NextResponse.json({ success: true, processed: true, message: 'Stock out refund completed.' });
+  } catch (err: any) {
+    console.error('[Razorpay Webhook Error]:', err);
+    if (eventId) {
+      await db
+        .update(schema.webhookEvents)
+        .set({ error: err?.message || String(err) })
+        .where(eq(schema.webhookEvents.event_id, eventId))
+        .catch(() => {});
     }
-
-    return NextResponse.json({ error: 'Internal server error processing webhook' }, { status: 500 });
+    return NextResponse.json({ error: 'Webhook processing error' }, { status: 500 });
   }
 }

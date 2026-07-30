@@ -1,41 +1,38 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, inArray } from 'drizzle-orm';
-import { rateLimit } from '@/lib/rateLimit';
+import { eq, inArray, desc } from 'drizzle-orm';
+import { checkRateLimit } from '@/lib/orchestration/rate-limiter';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    // Rate limit per IP: max 10 attempts per 10 minutes (600,000 ms)
     const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-    const rateLimitResult = await rateLimit(`ratelimit:track:${ip}`, 10, 600000);
-    if (!rateLimitResult.success) {
+    const { success, resetSec } = await checkRateLimit({
+      endpoint: 'track',
+      ip,
+    });
+
+    if (!success) {
       return NextResponse.json(
-        { error: `Too many tracking attempts. Please retry in ${rateLimitResult.reset} seconds.` },
-        {
-          status: 429,
-          headers: {
-            'Content-Type': 'application/json',
-            'Retry-After': String(rateLimitResult.reset),
-          },
-        }
+        { error: `Too many tracking attempts. Please retry in ${resetSec} seconds.` },
+        { status: 429 }
       );
     }
 
     const { searchParams } = new URL(request.url);
     const orderNumber = searchParams.get('orderNumber');
-    const phone = searchParams.get('phone'); // Can be full number or last 4 digits
+    const phone = searchParams.get('phone');
 
     if (!orderNumber || !phone) {
-      return NextResponse.json({ error: 'Both orderNumber and phone are required for tracking verification' }, { status: 400 });
+      return NextResponse.json({ error: 'Both orderNumber and phone are required for tracking' }, { status: 400 });
     }
 
     const cleanOrderNumber = orderNumber.trim().toUpperCase();
     const cleanPhone = phone.trim();
 
-    // 1. Fetch order from Neon DB
+    // 1. Fetch order directly from Neon DB (ONLY source of truth)
     const [order] = await db
       .select()
       .from(schema.orders)
@@ -44,16 +41,16 @@ export async function GET(request: Request) {
 
     if (!order) {
       return NextResponse.json(
-        { error: 'No matching order found. Please check details or message us on WhatsApp.' },
+        { error: 'No matching order found. Please check order number.' },
         { status: 404 }
       );
     }
 
-    // 2. Validate phone match (must match full phone or last 4 digits)
-    const phoneMatches = 
-      order.customer_phone === cleanPhone || 
+    // 2. Validate phone match (full phone or ending digits)
+    const phoneMatches =
+      order.customer_phone === cleanPhone ||
       order.customer_phone.endsWith(cleanPhone) ||
-      cleanPhone.length >= 4 && order.customer_phone.endsWith(cleanPhone.slice(-4));
+      (cleanPhone.length >= 4 && order.customer_phone.endsWith(cleanPhone.slice(-4)));
 
     if (!phoneMatches) {
       return NextResponse.json(
@@ -62,16 +59,21 @@ export async function GET(request: Request) {
       );
     }
 
-    // Collect all product IDs from the order items
-    const productIds = (order.items as any[] || []).map((i: any) => i.id || i.productId);
+    // 3. Fetch shipment events from Neon DB
+    const events = await db
+      .select()
+      .from(schema.shipmentEvents)
+      .where(eq(schema.shipmentEvents.order_id, order.id))
+      .orderBy(desc(schema.shipmentEvents.event_timestamp));
 
-    // Fetch product images as a fallback
-    const fallbackImages = productIds.length > 0
-      ? await db
-          .select()
-          .from(schema.productImages)
-          .where(inArray(schema.productImages.product_id, productIds))
-      : [];
+    const productIds = ((order.items as any[]) || []).map((i: any) => i.id || i.productId);
+    const fallbackImages =
+      productIds.length > 0
+        ? await db
+            .select()
+            .from(schema.productImages)
+            .where(inArray(schema.productImages.product_id, productIds))
+        : [];
 
     const imageMap = new Map<string, string>();
     fallbackImages.forEach((img: any) => {
@@ -80,46 +82,45 @@ export async function GET(request: Request) {
       }
     });
 
-    // 3. Keep safe fields for client response, including totals and prices
-    const sanitizedItems = (order.items as any[]).map((item: any) => ({
+    const sanitizedItems = ((order.items as any[]) || []).map((item: any) => ({
       name: item.name,
       size: item.size,
       quantity: item.quantity,
-      image: item.image || imageMap.get(item.id || item.productId) || 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=800&auto=format&fit=crop&q=80',
+      image: item.image || imageMap.get(item.id || item.productId) || '',
       price: item.price,
     }));
 
-    // Estimate delivery duration based on PIN code locally
     const pincode = order.shipping_address?.pincode || '';
     const isLocalCity = pincode.startsWith('560');
-    const isLocalRegion = pincode.startsWith('5');
-    const estDaysText = isLocalCity ? '1-2 business days' : isLocalRegion ? '2-3 business days' : '4-6 business days';
-
-    // 4. Fetch tracking status from Firestore
-    const { firestoreService } = await import('@/lib/firestore');
-    const tracking = await firestoreService.getDoc('order_tracking', order.id);
+    const estDaysText = isLocalCity ? '1-2 business days' : '3-5 business days';
 
     return NextResponse.json({
       order_number: order.order_number,
       order_status: order.order_status,
+      payment_status: order.payment_status,
+      fulfillment_type: order.fulfillment_type,
       created_at: order.created_at.toISOString(),
       items: sanitizedItems,
       total: order.total,
       subtotal: order.subtotal,
       shipping_charge: order.shipping_charge,
       discount_amount: order.discount_amount || 0,
-      tracking_number: tracking?.tracking_number || order.tracking_number || null,
-      courier_partner: tracking?.courier_provider === 'borzo' ? 'Borzo Express' : (order.courier_partner || null),
+      awb_code: order.awb_code || order.tracking_number || null,
+      tracking_number: order.awb_code || order.tracking_number || null,
+      courier_name: order.courier_name || order.courier_partner || null,
+      tracking_url: order.tracking_url || null,
+      label_url: order.label_url || null,
       estimated_delivery_text: estDaysText,
-      tracking_history: tracking ? {
-        status: tracking.status,
-        status_label: tracking.status_label,
-        updated_at: tracking.updated_at,
-      } : null,
+      events: events.map((e: any) => ({
+        status: e.status,
+        courier: e.courier,
+        location: e.location,
+        description: e.description,
+        timestamp: e.event_timestamp ? new Date(e.event_timestamp).toISOString() : new Date().toISOString(),
+      })),
     });
-
   } catch (error) {
-    console.error('Track order API error:', error);
+    console.error('[Track Order API Error]:', error);
     return NextResponse.json({ error: 'An unexpected error occurred during tracking lookup' }, { status: 500 });
   }
 }

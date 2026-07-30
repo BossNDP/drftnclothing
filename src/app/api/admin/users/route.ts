@@ -56,8 +56,8 @@ export async function GET(request: Request) {
         name: schema.users.name,
         phone: schema.users.phone,
         email: schema.users.email,
-        createdAt: schema.users.createdAt,
-        authProvider: schema.users.authProvider,
+        createdAt: schema.users.created_at,
+        authProvider: schema.users.auth_provider,
         totalOrders: sql<number>`count(${schema.orders.id})::int`,
       })
       .from(schema.users)
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
 
     const items = await usersQuery
       .groupBy(schema.users.id)
-      .orderBy(desc(schema.users.createdAt))
+      .orderBy(desc(schema.users.created_at))
       .limit(limit)
       .offset(offset);
 
