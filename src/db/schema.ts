@@ -247,6 +247,7 @@ export const users = pgTable('users', {
   auth_provider: authProviderEnum('auth_provider').notNull(),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   last_active_at: timestamp('last_active_at', { withTimezone: true }),
+  last_wishlist_email_sent_at: timestamp('last_wishlist_email_sent_at', { withTimezone: true }),
 });
 
 // 12. Wishlist Table (Lightweight, scalable, single row per item, zero duplicated product data)

@@ -138,20 +138,17 @@ export default function Navbar() {
   return (
     <>
       <div id="nav-scroll-sentinel" className="absolute top-0 left-0 w-full h-[50px] pointer-events-none z-[-1]" aria-hidden="true" />
-      {/* ── Announcement Bar ── */}
-      <AnnouncementTicker />
+      {/* ── Fixed Top Header Container ── */}
+      <div className="fixed top-0 left-0 w-full z-[5000] pointer-events-auto">
+        {/* ── Announcement Bar ── */}
+        <AnnouncementTicker />
 
-      {/* ── Main Navigation Top Rail ── */}
-      <header
-        suppressHydrationWarning
-        className={`w-full sticky top-0 z-[2000] transform transition-transform duration-300 ${
-          navVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
-        } hidden md:block ${isScrolled || !isHomepage
-          ? 'bg-[#0A0A0A] border-b border-brand-graphite/40 shadow-[0_4px_30px_rgba(0,0,0,0.5)]'
-          : 'bg-transparent border-b border-transparent'
-          }`}
-        role="banner"
-      >
+        {/* ── Main Navigation Top Rail (Desktop) ── */}
+        <header
+          suppressHydrationWarning
+          className="w-full hidden md:block transition-all duration-300 bg-black/85 backdrop-blur-md border-b border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
+          role="banner"
+        >
         {/* Subtle top scrim for nav and logo contrast */}
         <div
           className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/85 to-transparent pointer-events-none z-[-1]"
@@ -235,11 +232,10 @@ export default function Navbar() {
                 aria-label={`Wishlist${mounted && wishlistCount > 0 ? `, ${wishlistCount} items` : ''}`}
               >
                 <Heart
-                  className={`w-5 h-5 stroke-[1.8] transition-all duration-300 ${
-                    mounted && wishlistCount > 0
-                      ? 'text-pink-500 fill-pink-500 filter drop-shadow-[0_0_5px_rgba(236,72,153,0.6)]'
-                      : 'text-zinc-400 group-hover:text-pink-400'
-                  }`}
+                  className={`w-5 h-5 stroke-[1.8] transition-all duration-300 ${mounted && wishlistCount > 0
+                    ? 'text-pink-500 fill-pink-500 filter drop-shadow-[0_0_5px_rgba(236,72,153,0.6)]'
+                    : 'text-zinc-400 group-hover:text-pink-400'
+                    }`}
                 />
                 {mounted && wishlistCount > 0 && (
                   <motion.span
@@ -257,9 +253,8 @@ export default function Navbar() {
             {/* Cart Trigger */}
             <button
               onClick={() => setIsOpen(true)}
-              className={`relative flex items-center justify-center p-2 transition-all duration-200 group ${
-                cartPulseActive ? 'scale-125 text-white' : 'text-zinc-400 hover:text-white'
-              }`}
+              className={`relative flex items-center justify-center p-2 transition-all duration-200 group ${cartPulseActive ? 'scale-125 text-white' : 'text-zinc-400 hover:text-white'
+                }`}
               aria-label={`Open cart${mounted && cartCount > 0 ? `, ${cartCount} items` : ''}`}
             >
               <ShoppingBag className="w-5 h-5 stroke-[1.8] text-zinc-400 group-hover:text-white transition-colors" />
@@ -295,11 +290,10 @@ export default function Navbar() {
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </button>
                   <div
-                    className={`absolute right-0 top-full pt-2 w-44 z-50 transition-all duration-200 ${
-                      accountMenuOpen
-                        ? 'opacity-100 pointer-events-auto'
-                        : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
-                    }`}
+                    className={`absolute right-0 top-full pt-2 w-44 z-50 transition-all duration-200 ${accountMenuOpen
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto'
+                      }`}
                   >
                     <div className="bg-zinc-950 border border-white/15 rounded-md shadow-2xl py-1 overflow-hidden backdrop-blur-xl">
                       <Link
@@ -369,134 +363,175 @@ export default function Navbar() {
       {/* ── Mobile Navigation Top Rail ── */}
       <header
         suppressHydrationWarning
-        className={`w-full sticky top-0 z-[2000] transform transition-transform duration-300 ${
-          navVisible ? 'translate-y-0' : '-translate-y-full pointer-events-none'
-        } md:hidden ${
-          mounted && isCartOpen ? 'hidden' : ''
-        } bg-black/75 backdrop-blur-lg border-b border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)]`}
+        className={`w-full md:hidden ${mounted && isCartOpen ? 'hidden' : ''
+          } bg-black/85 backdrop-blur-lg border-b border-white/10 shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-all duration-300`}
       >
-          <div className="h-16 flex items-center justify-between px-6 relative">
-            {/* Left: Wordmark Logo */}
-            <Link
-              href="/"
-              className="flex items-center select-none group flex-shrink-0"
-              aria-label="DRFTN Clothing — Home"
-            >
-              <div className="relative w-[94px] h-6">
-                <Image
-                  src="/logo-cropped.png"
-                  alt="DRFTN Clothing"
-                  fill
-                  priority
-                  sizes="120px"
-                  className="object-contain object-left transition-opacity duration-300 group-hover:opacity-80"
-                />
-              </div>
-            </Link>
+        <div className="h-12 md:h-16 flex items-center justify-between px-5 sm:px-6 relative">
+          {/* Left: Wordmark Logo */}
+          <Link
+            href="/"
+            className="flex items-center select-none group flex-shrink-0"
+            aria-label="DRFTN Clothing — Home"
+          >
+            <div className="relative w-[90px] h-5 sm:w-[94px] sm:h-6">
+              <Image
+                src="/logo-cropped.png"
+                alt="DRFTN Clothing"
+                fill
+                priority
+                sizes="120px"
+                className="object-contain object-left transition-opacity duration-300 group-hover:opacity-80"
+              />
+            </div>
+          </Link>
 
-            {/* Right: Cart icon + Auth control */}
-            <div className="flex items-center gap-3">
-              {/* Cart Icon with Badge */}
-              <button
-                onClick={() => setIsOpen(true)}
-                className={`relative flex items-center justify-center p-2 transition-all duration-200 ${cartPulseActive ? 'scale-125 text-white' : 'text-zinc-400 hover:text-white'}`}
-                aria-label={`Open cart${mounted && cartCount > 0 ? `, ${cartCount} items` : ''}`}
+          {/* Right: Wishlist Heart icon + Cart icon + Auth control */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Wishlist Heart Icon with Badge */}
+            <motion.div
+              whileTap={{ scale: 0.85 }}
+              animate={
+                wishlistPulseActive
+                  ? { scale: [1, 1.3, 0.9, 1.15, 1], rotate: [0, -12, 12, 0] }
+                  : { scale: 1 }
+              }
+              transition={{ duration: 0.4, ease: 'easeOut' }}
+            >
+              <Link
+                href="/wishlist"
+                onClick={() => {
+                  if (typeof window !== 'undefined' && typeof window.navigator !== 'undefined' && window.navigator.vibrate) {
+                    try {
+                      window.navigator.vibrate([25, 40, 25]);
+                    } catch (e) {
+                      // ignore vibration errors
+                    }
+                  }
+                }}
+                className="relative flex items-center justify-center p-1.5 text-zinc-400 hover:text-white transition-colors group"
+                aria-label={`Wishlist${mounted && wishlistCount > 0 ? `, ${wishlistCount} items` : ''}`}
               >
-                <ShoppingBag className="w-5 h-5 stroke-[1.8]" />
-                {mounted && cartCount > 0 && (
-                  <span
-                    className="absolute top-1 right-1 bg-white text-black text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                <Heart
+                  className={`w-5 h-5 stroke-[1.8] transition-all duration-300 ${mounted && wishlistCount > 0
+                    ? 'text-pink-500 fill-pink-500 filter drop-shadow-[0_0_5px_rgba(236,72,153,0.6)]'
+                    : 'text-zinc-400 group-hover:text-pink-400'
+                    }`}
+                />
+                {mounted && wishlistCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="absolute top-0 right-0 bg-pink-500 text-white text-[8px] font-bold font-mono h-3.5 min-w-[14px] px-1 rounded-full flex items-center justify-center border border-black shadow-sm"
                     aria-hidden="true"
                   >
-                    {cartCount}
+                    {wishlistCount}
+                  </motion.span>
+                )}
+              </Link>
+            </motion.div>
+
+            {/* Cart Icon with Badge */}
+            <button
+              onClick={() => setIsOpen(true)}
+              className={`relative flex items-center justify-center p-1.5 transition-all duration-200 ${cartPulseActive ? 'scale-125 text-white' : 'text-zinc-400 hover:text-white'}`}
+              aria-label={`Open cart${mounted && cartCount > 0 ? `, ${cartCount} items` : ''}`}
+            >
+              <ShoppingBag className="w-5 h-5 stroke-[1.8]" />
+              {mounted && cartCount > 0 && (
+                <span
+                  className="absolute top-0.5 right-0.5 bg-white text-black text-[8px] font-bold w-3.5 h-3.5 rounded-full flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  {cartCount}
+                </span>
+              )}
+            </button>
+
+            {/* Auth Control */}
+            <div className="relative min-w-[32px] min-h-[32px] flex items-center justify-end" suppressHydrationWarning>
+              {!mounted || !isLoaded ? (
+                <div className="w-8 h-8 rounded-full bg-transparent" aria-hidden="true" />
+              ) : !isSignedIn ? (
+                <button
+                  onClick={() => openAuthModal()}
+                  className="px-3.5 py-1.5 rounded-full border border-white/20 bg-transparent text-[11px] font-mono tracking-widest text-white uppercase transition-colors hover:border-white/50 active:bg-white/10 cursor-pointer"
+                  aria-label="Sign In"
+                >
+                  SIGN IN
+                </button>
+              ) : (
+                <button
+                  onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
+                  className="relative flex items-center justify-center rounded-full p-0.5 cursor-pointer"
+                  aria-label="Open Account Dropdown"
+                >
+                  <span className="w-8 h-8 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-xs font-mono font-bold">
+                    {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </span>
-                )}
-              </button>
+                </button>
+              )}
 
-              {/* Auth Control */}
-              <div className="relative min-w-[32px] min-h-[32px] flex items-center justify-end" suppressHydrationWarning>
-                {!mounted || !isLoaded ? (
-                  <div className="w-8 h-8 rounded-full bg-transparent" aria-hidden="true" />
-                ) : !isSignedIn ? (
-                  <button
-                    onClick={() => openAuthModal()}
-                    className="px-3.5 py-1.5 rounded-full border border-white/20 bg-transparent text-[11px] font-mono tracking-widest text-white uppercase transition-colors hover:border-white/50 active:bg-white/10 cursor-pointer"
-                    aria-label="Sign In"
-                  >
-                    SIGN IN
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setMobileDropdownOpen(!mobileDropdownOpen)}
-                    className="relative flex items-center justify-center rounded-full p-0.5 cursor-pointer"
-                    aria-label="Open Account Dropdown"
-                  >
-                    <span className="w-8 h-8 rounded-full bg-brand-graphite border border-white/20 text-white flex items-center justify-center text-xs font-mono font-bold">
-                      {user?.name?.charAt(0).toUpperCase() || 'U'}
-                    </span>
-                  </button>
+              {/* Account Dropdown */}
+              <AnimatePresence>
+                {mounted && mobileDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40 bg-transparent"
+                      onClick={() => setMobileDropdownOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+                      className="absolute right-0 top-full mt-3 w-48 z-50 rounded-2xl border border-white/10 bg-[#0A0A0A]/85 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden"
+                    >
+                      <div className="py-2 flex flex-col font-body">
+                        <Link
+                          href="/account/orders"
+                          onClick={() => setMobileDropdownOpen(false)}
+                          className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
+                        >
+                          Orders
+                        </Link>
+                        <Link
+                          href="/wishlist"
+                          onClick={() => setMobileDropdownOpen(false)}
+                          className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5 flex items-center justify-between"
+                        >
+                          <span>Wishlist</span>
+                          {mounted && wishlistCount > 0 && (
+                            <span className="bg-pink-500/20 text-pink-300 border border-pink-500/40 text-[9px] px-2 py-0.5 rounded-full font-mono font-bold">
+                              {wishlistCount}
+                            </span>
+                          )}
+                        </Link>
+                        <Link
+                          href="/account/orders"
+                          onClick={() => setMobileDropdownOpen(false)}
+                          className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
+                        >
+                          Profile
+                        </Link>
+                        <button
+                          onClick={() => {
+                            logout();
+                            setMobileDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-5 py-3 text-xs uppercase tracking-wider text-brand-red hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
                 )}
-
-                {/* Account Dropdown */}
-                <AnimatePresence>
-                  {mounted && mobileDropdownOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-40 bg-transparent"
-                        onClick={() => setMobileDropdownOpen(false)}
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: -10, x: 10 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className="absolute right-0 top-full mt-3 w-48 z-50 rounded-2xl border border-white/10 bg-[#0A0A0A]/85 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] overflow-hidden"
-                      >
-                        <div className="py-2 flex flex-col font-body">
-                          <Link
-                            href="/account/orders"
-                            onClick={() => setMobileDropdownOpen(false)}
-                            className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
-                          >
-                            Orders
-                          </Link>
-                          <Link
-                            href="/wishlist"
-                            onClick={() => setMobileDropdownOpen(false)}
-                            className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5 flex items-center justify-between"
-                          >
-                            <span>Wishlist</span>
-                            {mounted && wishlistCount > 0 && (
-                              <span className="bg-pink-500/20 text-pink-300 border border-pink-500/40 text-[9px] px-2 py-0.5 rounded-full font-mono font-bold">
-                                {wishlistCount}
-                              </span>
-                            )}
-                          </Link>
-                          <Link
-                            href="/account/orders"
-                            onClick={() => setMobileDropdownOpen(false)}
-                            className="px-5 py-3 text-xs uppercase tracking-wider text-zinc-300 hover:text-white hover:bg-white/5 transition-colors border-b border-white/5"
-                          >
-                            Profile
-                          </Link>
-                          <button
-                            onClick={() => {
-                              logout();
-                              setMobileDropdownOpen(false);
-                            }}
-                            className="w-full text-left px-5 py-3 text-xs uppercase tracking-wider text-brand-red hover:bg-white/5 transition-colors cursor-pointer"
-                          >
-                            Logout
-                          </button>
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
-              </div>
+              </AnimatePresence>
             </div>
           </div>
+        </div>
       </header>
+      </div>
 
       {/* Mobile Drawer Navigation Menu Overlay */}
       <AnimatePresence>

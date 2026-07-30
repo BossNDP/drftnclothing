@@ -121,96 +121,117 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
         );
       }
 
-      // 2. Pinned Master Scroll Scrub Sequence (Optimized: zero React state updates, threshold-guarded DOM mutations)
-      ScrollTrigger.create({
-        trigger: containerEl,
-        start: 'top top',
-        end: 'bottom bottom',
-        pin: pinnedEl,
-        scrub: 1.0,
-        fastScrollEnd: true,
-        preventOverlaps: true,
-        onUpdate: (self) => {
-          const p = self.progress;
+      // 2. Ultra-Slow Cinematic Hero Scroll Reveal (Mobile & Desktop)
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-          // Hoodie scale remains fixed (no bounce/scale distortion)
-          if (heroImageWrapperRef.current) {
-            gsap.set(heroImageWrapperRef.current, { scale: 1.0 });
-          }
+      if (hoodieDarkEl) {
+        gsap.set(hoodieDarkEl, { '--material-progress': '-100%', opacity: 0 });
 
-          // Outfit color shift material progress: -20% to 130% (White -> Black Hoodie)
-          if (hoodieDarkEl) {
-            const matProgress = -20 + p * 150;
-            hoodieDarkEl.style.setProperty('--material-progress', `${matProgress}%`);
-          }
+        const scrollTl = gsap.timeline({
+          scrollTrigger: {
+            trigger: containerEl,
+            start: 'top top',
+            end: 'bottom bottom',
+            pin: pinnedEl,
+            scrub: isMobile ? 1.5 : 1.0,
+            fastScrollEnd: false,
+            preventOverlaps: true,
+            onUpdate: (self) => {
+              const p = self.progress;
 
-          // Scroll-Driven Ambient Light Sweep — position-only update (GPU-composited, no repaint)
-          if (lightSweepRef.current && Math.abs(p - lastLightPRef.current) > 0.005) {
-            lastLightPRef.current = p;
-            // Move the pre-baked radial gradient using transform instead of repainting background
-            const lightX = Math.round((p * 60) * 10) / 10;
-            const lightY = Math.round((p * 40) * 10) / 10;
-            gsap.set(lightSweepRef.current, { xPercent: lightX, yPercent: lightY });
-          }
-
-          // Progress Indicator Dots Highlight (Guarded: runs ONLY when crossing 0.45 threshold)
-          const isBlack = p > 0.45;
-          if (isBlackRef.current !== isBlack) {
-            isBlackRef.current = isBlack;
-            if (dot1Ref.current && dot2Ref.current) {
-              if (isBlack) {
-                dot1Ref.current.className = 'w-1.5 h-2 rounded-full bg-white/30 transition-all duration-300';
-                dot2Ref.current.className = 'w-1.5 h-6 rounded-full bg-white transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.8)]';
-              } else {
-                dot1Ref.current.className = 'w-1.5 h-6 rounded-full bg-white transition-all duration-300 shadow-[0_0_10px_rgba(255,255,255,0.8)]';
-                dot2Ref.current.className = 'w-1.5 h-2 rounded-full bg-white/30 transition-all duration-300';
+              // Smoothly ramp black layer opacity from 0 at rest to 1 as scroll starts (eliminates initial ghosting/blur)
+              if (hoodieDarkEl) {
+                if (p > 0.001) {
+                  const targetOpacity = Math.min(1, p * 4);
+                  gsap.set(hoodieDarkEl, { opacity: targetOpacity });
+                } else {
+                  gsap.set(hoodieDarkEl, { opacity: 0 });
+                }
               }
-            }
-          }
 
-          // Text block stays permanently visible (does NOT fade out on scroll)
-          if (textBlockRef.current) {
-            gsap.set(textBlockRef.current, {
-              opacity: 1,
-              y: 0,
-              visibility: 'visible',
-              pointerEvents: 'auto',
-            });
-          }
+              // Hoodie scale remains fixed (no bounce/scale distortion)
+              if (heroImageWrapperRef.current) {
+                gsap.set(heroImageWrapperRef.current, { scale: 1.0 });
+              }
 
-          // Scroll cue indicator scrub: fade out early (0 -> 12% scroll distance) (Guarded)
-          if (scrollIndicatorRef.current) {
-            if (p <= 0) {
-              if (cueClampStateRef.current !== 'visible') {
-                cueClampStateRef.current = 'visible';
-                gsap.set(scrollIndicatorRef.current, {
+              // Scroll-Driven Ambient Light Sweep — position-only update (GPU-composited, no repaint)
+              if (lightSweepRef.current && Math.abs(p - lastLightPRef.current) > 0.005) {
+                lastLightPRef.current = p;
+                const lightX = Math.round((p * 60) * 10) / 10;
+                const lightY = Math.round((p * 40) * 10) / 10;
+                gsap.set(lightSweepRef.current, { xPercent: lightX, yPercent: lightY });
+              }
+
+              // Progress Indicator Dots Highlight (Guarded: runs ONLY when crossing 0.45 threshold)
+              const isBlack = p > 0.45;
+              if (isBlackRef.current !== isBlack) {
+                isBlackRef.current = isBlack;
+                if (dot1Ref.current && dot2Ref.current) {
+                  if (isBlack) {
+                    dot1Ref.current.classList.remove('bg-brand-offwhite', 'scale-125');
+                    dot1Ref.current.classList.add('bg-brand-stone/30');
+                    dot2Ref.current.classList.remove('bg-brand-stone/30');
+                    dot2Ref.current.classList.add('bg-brand-offwhite', 'scale-125');
+                  } else {
+                    dot2Ref.current.classList.remove('bg-brand-offwhite', 'scale-125');
+                    dot2Ref.current.classList.add('bg-brand-stone/30');
+                    dot1Ref.current.classList.remove('bg-brand-stone/30');
+                    dot1Ref.current.classList.add('bg-brand-offwhite', 'scale-125');
+                  }
+                }
+              }
+
+              // Text block stays permanently visible (does NOT fade out on scroll)
+              if (textBlockRef.current) {
+                gsap.set(textBlockRef.current, {
                   opacity: 1,
+                  y: 0,
                   visibility: 'visible',
                   pointerEvents: 'auto',
                 });
               }
-            } else if (p >= 0.12) {
-              if (cueClampStateRef.current !== 'hidden') {
-                cueClampStateRef.current = 'hidden';
-                gsap.set(scrollIndicatorRef.current, {
-                  opacity: 0,
-                  visibility: 'hidden',
-                  pointerEvents: 'none',
-                });
+
+              // Scroll cue indicator scrub: fade out early (0 -> 12% scroll distance) (Guarded)
+              if (scrollIndicatorRef.current) {
+                if (p <= 0) {
+                  if (cueClampStateRef.current !== 'visible') {
+                    cueClampStateRef.current = 'visible';
+                    gsap.set(scrollIndicatorRef.current, {
+                      opacity: 1,
+                      visibility: 'visible',
+                      pointerEvents: 'auto',
+                    });
+                  }
+                } else if (p >= 0.12) {
+                  if (cueClampStateRef.current !== 'hidden') {
+                    cueClampStateRef.current = 'hidden';
+                    gsap.set(scrollIndicatorRef.current, {
+                      opacity: 0,
+                      visibility: 'hidden',
+                      pointerEvents: 'none',
+                    });
+                  }
+                } else {
+                  cueClampStateRef.current = 'fading';
+                  const cueProgress = p / 0.12;
+                  const cueOpacity = Math.max(0, 1 - cueProgress);
+                  gsap.set(scrollIndicatorRef.current, {
+                    opacity: cueOpacity,
+                    visibility: 'visible',
+                    pointerEvents: 'none',
+                  });
+                }
               }
-            } else {
-              cueClampStateRef.current = 'fading';
-              const cueProgress = p / 0.12;
-              const cueOpacity = Math.max(0, 1 - cueProgress);
-              gsap.set(scrollIndicatorRef.current, {
-                opacity: cueOpacity,
-                visibility: cueOpacity <= 0.01 ? 'hidden' : 'visible',
-                pointerEvents: cueOpacity < 0.1 ? 'none' : 'auto',
-              });
-            }
-          }
-        },
-      });
+            },
+          },
+        });
+
+        scrollTl.to(hoodieDarkEl, {
+          '--material-progress': '130%',
+          opacity: 1,
+          ease: 'none',
+        });
+      }
 
       // 3. Desktop Cursor-Reactive Hero Model Parallax
       if (window.innerWidth >= 768 && heroImageWrapperRef.current) {
@@ -294,7 +315,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
     <div
       ref={containerRef}
       id="hero-scene"
-      className="relative w-full bg-black select-none h-[160vh]"
+      className="relative w-full bg-black select-none h-[220vh] md:h-[180vh]"
     >
       <div
         ref={pinnedRef}
@@ -333,14 +354,14 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
               {/* Mobile Viewport Outfit Photo */}
               <div className="relative w-full h-full md:hidden">
                 <Image
-                  src="/mobilewhite-mobile.webp"
+                  src="/mobilewhite.webp"
                   alt="DRFTN Full-Body Outfit — White Edition"
                   fill
                   priority
                   fetchPriority="high"
-                  sizes="(max-width: 767px) 100vw, 750px"
-                  quality={80}
-                  className="object-cover object-[75%_20%] filter contrast-[1.02]"
+                  sizes="(max-width: 767px) 100vw, 1080px"
+                  quality={95}
+                  className="object-cover object-[75%_20%]"
                 />
               </div>
               {/* Desktop Viewport Original Hoodie Graphic */}
@@ -361,23 +382,24 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
             {/* Black Outfit Layer with Soft Mask Wipe */}
             <div
               ref={hoodieDarkRef}
-              className="absolute inset-0 w-full h-full bg-transparent pointer-events-none z-10"
+              className="absolute inset-0 w-full h-full bg-transparent pointer-events-none z-10 opacity-0"
               style={{
+                '--material-progress': '-100%',
                 WebkitMaskImage:
-                  'linear-gradient(180deg, #000 0%, #000 var(--material-progress, -20%), transparent calc(var(--material-progress, -20%) + 25%), transparent 100%)',
+                  'linear-gradient(180deg, #000 0%, #000 var(--material-progress, -100%), transparent calc(var(--material-progress, -100%) + 25%), transparent 100%)',
                 maskImage:
-                  'linear-gradient(180deg, #000 0%, #000 var(--material-progress, -20%), transparent calc(var(--material-progress, -20%) + 25%), transparent 100%)',
-              }}
+                  'linear-gradient(180deg, #000 0%, #000 var(--material-progress, -100%), transparent calc(var(--material-progress, -100%) + 25%), transparent 100%)',
+              } as React.CSSProperties}
             >
               {/* Mobile Viewport Outfit Photo */}
               <div className="relative w-full h-full md:hidden">
                 <Image
-                  src="/mobileblack-mobile.webp"
+                  src="/mobileblack.webp"
                   alt="DRFTN Full-Body Outfit — Black Edition"
                   fill
-                  sizes="(max-width: 767px) 100vw, 750px"
-                  quality={80}
-                  className="object-cover object-[75%_20%] filter contrast-[1.02]"
+                  sizes="(max-width: 767px) 100vw, 1080px"
+                  quality={95}
+                  className="object-cover object-[75%_20%]"
                 />
               </div>
               {/* Desktop Viewport Original Hoodie Graphic */}
@@ -410,11 +432,7 @@ export default function HeroHoodieScene({ products }: HeroHoodieSceneProps) {
               aria-hidden="true"
             />
 
-            {/* Natural Scrim Gradient Overlays for Pure Editorial Text Contrast */}
-            <div
-              className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/85 via-black/40 to-transparent pointer-events-none z-15"
-              aria-hidden="true"
-            />
+            {/* Bottom Scrim Gradient Overlay for Text Contrast */}
             <div
               className="absolute inset-x-0 bottom-0 h-[55%] md:h-[45%] bg-gradient-to-t from-black via-black/75 to-transparent pointer-events-none z-15"
               aria-hidden="true"

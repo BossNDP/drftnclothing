@@ -17,12 +17,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /* ─── Ticker messages ─────────────────────────────────────────────────── */
 const MESSAGES = [
-  { label: 'COD Available', detail: 'Cash on delivery across India' },
-  { label: 'Free Shipping', detail: 'On all orders above ₹999' },
-  { label: 'Born in Yelahanka', detail: 'Bengaluru\'s own streetwear label' },
-  { label: 'Zero Compromise', detail: 'Heavyweight unisex apparel' },
-  { label: 'Easy Returns', detail: '7-day hassle-free exchange' },
-  { label: 'Industrial Minimalism', detail: 'Drop-shoulder. Raw DNA.' },
+  { label: 'FREE COD AVAILABLE', detail: 'Cash on delivery across India' },
+  { label: 'FREE SHIPPING', detail: 'On all orders across India' },
+  { label: 'SHOP ABOVE ₹999', detail: 'Get ₹100 OFF at checkout' },
 ];
 
 const DURATION = 3500; // ms per message
@@ -110,14 +107,14 @@ export default function AnnouncementTicker() {
   return (
     <section
       ref={containerRef}
-      className="relative border-y border-[#2A2A2A] bg-brand-black select-none overflow-hidden"
+      className="w-full bg-black h-6 border-b border-zinc-900 flex items-center justify-center relative select-none overflow-hidden"
       aria-label="Announcement"
       aria-live="polite"
       aria-atomic="true"
     >
       {/* Dot nav — left side */}
       <div
-        className="absolute left-4 sm:left-5 inset-y-0 flex items-center gap-1 sm:gap-1.5 z-10"
+        className="absolute left-3 inset-y-0 flex items-center gap-1 z-10"
         aria-hidden="true"
       >
         {MESSAGES.map((_, i) => (
@@ -125,7 +122,7 @@ export default function AnnouncementTicker() {
             key={i}
             onClick={() => { setIdx(i); setBarKey((k) => k + 1); }}
             className={`w-1 rounded-full transition-all duration-300 ${i === idx
-                ? 'h-3.5 bg-brand-offwhite'
+                ? 'h-2 bg-brand-offwhite'
                 : 'h-1 bg-brand-stone/30 hover:bg-brand-stone/60'
               }`}
             aria-label={`Go to message ${i + 1}`}
@@ -134,7 +131,7 @@ export default function AnnouncementTicker() {
       </div>
 
       {/* Message area */}
-      <div className="flex items-center justify-center py-3 px-10 sm:px-20 min-h-[44px] relative">
+      <div className="flex items-center justify-center px-8 h-full relative">
         <AnimatePresence mode="wait">
           <motion.div
             key={idx}
@@ -142,16 +139,16 @@ export default function AnnouncementTicker() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="flex items-center gap-2.5 sm:gap-3.5 text-center"
+            className="flex items-center gap-2 text-center"
           >
-            <span className="font-display uppercase text-brand-offwhite text-[8.5px] sm:text-[11px] tracking-[0.22em] sm:tracking-[0.4em] leading-none font-bold">
+            <span className="font-mono text-[10px] font-medium tracking-widest text-zinc-300 uppercase leading-none">
               {msg.label}
             </span>
 
             {/* Divider — simple vertical line */}
-            <span className="hidden sm:inline-block text-zinc-700 font-mono text-xs" aria-hidden="true">|</span>
+            <span className="hidden sm:inline-block text-zinc-700 font-mono text-[10px]" aria-hidden="true">•</span>
 
-            <span className="text-brand-stone text-[9px] sm:text-[10px] tracking-[0.25em] uppercase font-body hidden sm:inline">
+            <span className="text-zinc-400 text-[10px] tracking-wider uppercase font-mono hidden sm:inline leading-none">
               {msg.detail}
             </span>
           </motion.div>
@@ -159,25 +156,13 @@ export default function AnnouncementTicker() {
       </div>
 
       {/* Progress bar — fills left-to-right, resets on each rotation */}
-      <div className="absolute bottom-0 inset-x-0 h-[2px] bg-brand-graphite overflow-hidden" aria-hidden="true">
+      <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-zinc-900 overflow-hidden" aria-hidden="true">
         <div
           key={barKey}
-          className="h-full bg-brand-offwhite/20 origin-left animate-ticker-progress"
+          className="h-full bg-white/20 origin-left animate-ticker-progress"
           style={{ animationPlayState: isRunning ? 'running' : 'paused' }}
         />
       </div>
-
-      {/* Edge fade-outs so content doesn't hard-cut at screen edge */}
-      <div
-        className="absolute inset-y-0 left-0 w-12 sm:w-20 pointer-events-none z-10"
-        style={{ background: 'linear-gradient(to right, rgba(0,0,0,1) 0%, transparent 100%)' }}
-        aria-hidden="true"
-      />
-      <div
-        className="absolute inset-y-0 right-0 w-12 sm:w-20 pointer-events-none z-10"
-        style={{ background: 'linear-gradient(to left, rgba(0,0,0,1) 0%, transparent 100%)' }}
-        aria-hidden="true"
-      />
     </section>
   );
 }

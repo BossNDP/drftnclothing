@@ -371,7 +371,7 @@ export default function Footer({ standalone }: { standalone?: boolean }) {
               <Link href="/sitemap.xml" className="hover:text-white transition-colors">SITEMAP</Link>
             </div>
             <p className="uppercase tracking-widest text-[9px] text-zinc-500">
-              Made in Bengaluru · GSTIN: 29XXXXXXXXXX1ZX
+              Made in Bengaluru
             </p>
           </div>
           

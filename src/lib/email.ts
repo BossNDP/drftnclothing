@@ -695,10 +695,12 @@ export async function sendWishlistReminderEmail({
   customerEmail,
   customerName = 'Valued Customer',
   items,
+  customSubject,
 }: {
   customerEmail: string;
   customerName?: string;
   items: WishlistEmailItem[];
+  customSubject?: string;
 }): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[Email] RESEND_API_KEY not set — skipping wishlist reminder email.');
@@ -722,9 +724,11 @@ export async function sendWishlistReminderEmail({
 
     const isMulti = items.length > 1;
     const firstItemName = items[0].name;
-    const subject = isMulti
+    const defaultSubject = isMulti
       ? `Still thinking about it? ${items.length} items waiting in your Wishlist | DRFTN`
       : `Still thinking about it? Your ${firstItemName} is waiting | DRFTN`;
+
+    const subject = customSubject || defaultSubject;
 
     const { error } = await resend.emails.send({
       from: FROM_ADDRESS,

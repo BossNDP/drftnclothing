@@ -214,14 +214,14 @@ export default function RootLayout({
           <link rel="preload" href="/mobilewhite.webp" as="image" type="image/webp" fetchPriority="high" media="(max-width: 767px)" />
           <link rel="preload" href="/hero/hoodie-light.webp" as="image" type="image/webp" fetchPriority="high" media="(min-width: 768px)" />
         </head>
-        <body suppressHydrationWarning className={`${outfit.variable} ${oxanium.variable} ${spaceMono.variable} antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite`}>
+        <body suppressHydrationWarning className={`${outfit.variable} ${oxanium.variable} ${spaceMono.variable} antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite p-0 m-0`}>
           <SmoothScrollProvider>
             <AuthSessionProvider>
               {/* Global Navbar */}
               <Navbar />
 
               {/* Main Content Area */}
-              <main className="flex-1 flex flex-col relative w-full">
+              <main className="flex-1 flex flex-col relative w-full p-0 m-0">
                 <PageTransition>{children}</PageTransition>
               </main>
 

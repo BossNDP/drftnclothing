@@ -1,67 +1,73 @@
-import Image from 'next/image';
 import { ArrowUpRight } from 'lucide-react';
 import ScrollReveal from '@/components/ui/ScrollReveal';
 
-const lookbookImages = [
-  { url: 'https://images.unsplash.com/photo-1509281373149-e957c6296406?w=500', alt: 'DRFTN streetwear hoodie details' },
-  { url: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?w=500', alt: 'DRFTN graphic tee look' },
-  { url: 'https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=500', alt: 'DRFTN streetwear silhouette' },
-  { url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'DRFTN heavy custom hoodie' },
-  { url: 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=500', alt: 'DRFTN techwear jacket display' },
-  { url: 'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=500', alt: 'DRFTN minimal industrial aesthetic fit' },
+const InstagramIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+);
+
+const TICKER_WORDS = [
+  'JOIN THE MOVEMENT',
+  'LIMITED DROPS',
+  'RAW MINIMALISM',
+  'UNISEX SILHOUETTES',
+  'HEAVYWEIGHT COTTON',
+  '@DRFTNCLOTHING',
 ];
 
-/**
- * Lookbook — pure Server Component.
- * Static asymmetric photo grid. All images lazy-loaded.
- */
 export default function Lookbook() {
   return (
     <section
-      className="py-16 md:py-24 px-6 md:px-12 w-full relative z-10 border-t border-brand-graphite/40"
-      aria-labelledby="lookbook-heading"
+      className="py-20 md:py-28 px-6 md:px-12 w-full relative z-10 border-t border-brand-graphite/40 bg-brand-black overflow-hidden"
+      aria-labelledby="instagram-cta-heading"
     >
-      <div className="max-w-screen-2xl mx-auto">
-        {/* Header */}
-        <ScrollReveal className="text-center mb-14 space-y-3">
-          <span className="block w-6 h-[2px] bg-white mx-auto mb-3" aria-hidden="true" />
+      {/* Background Subtle Gradient Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-offwhite/[0.03] rounded-full blur-3xl pointer-events-none" />
+
+      <div className="max-w-screen-xl mx-auto text-center relative z-10 space-y-8">
+        {/* Ticker Marquee Line */}
+        <div className="w-full overflow-hidden py-3 border-y border-white/5 bg-white/[0.01]">
+          <div className="flex gap-8 whitespace-nowrap animate-marquee text-[10px] sm:text-xs font-mono tracking-[0.3em] uppercase text-zinc-500 font-bold select-none">
+            {[...TICKER_WORDS, ...TICKER_WORDS, ...TICKER_WORDS, ...TICKER_WORDS].map((word, i) => (
+              <span key={i} className="flex items-center gap-8">
+                <span>{word}</span>
+                <span className="text-zinc-700">&bull;</span>
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Main CTA Card */}
+        <ScrollReveal className="space-y-6 pt-4">
+          <span className="block w-6 h-[2px] bg-white mx-auto" aria-hidden="true" />
+
           <h2
-            id="lookbook-heading"
-            className="text-white font-display uppercase text-3xl md:text-5xl tracking-tight"
+            id="instagram-cta-heading"
+            className="text-white font-display uppercase font-extrabold text-3xl md:text-5xl tracking-tight"
           >
             Drift With Us
           </h2>
-          <a
-            href="https://instagram.com/drftnclothing"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[10px] text-brand-stone hover:text-white tracking-[0.25em] uppercase transition-colors font-body font-bold"
-            aria-label="Follow DRFTN on Instagram @drftnclothing"
-          >
-            @drftnclothing
-            <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
-          </a>
-        </ScrollReveal>
 
-        {/* Asymmetric Photo Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {lookbookImages.map((img, i) => (
-            <div
-              key={i}
-              className="relative overflow-hidden aspect-[4/5] rounded-[var(--radius-md)] bg-brand-charcoal border border-white/5 group"
+          <p className="text-zinc-400 text-xs sm:text-sm font-mono max-w-md mx-auto leading-relaxed">
+            Follow our Instagram for unreleased prototypes, behind-the-scenes drops, and community features.
+          </p>
+
+          <div className="pt-2">
+            <a
+              href="https://instagram.com/drftnclothing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative inline-flex items-center gap-3 bg-zinc-900 hover:bg-white text-white hover:text-black border border-white/10 hover:border-white px-8 py-4 rounded-xl text-xs font-mono font-bold uppercase tracking-[0.25em] transition-all duration-300 shadow-2xl hover:scale-105"
             >
-              <Image
-                src={img.url}
-                alt={img.alt}
-                fill
-                sizes="(max-width: 768px) 50vw, 16vw"
-                loading="lazy"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </div>
-          ))}
-        </div>
+              <InstagramIcon className="w-4 h-4 transition-transform group-hover:scale-110" />
+              <span>@drftnclothing</span>
+              <ArrowUpRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </a>
+          </div>
+        </ScrollReveal>
       </div>
     </section>
   );
