@@ -22,7 +22,7 @@ import HeartBurstAnimation from '@/components/HeartBurstAnimation';
 const CATEGORY_VISUALS: Record<string, { label: string; image: string }> = {
   all: {
     label: 'All Drops',
-    image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1509967419530-da38b4704bc6?w=1200&fit=crop&q=80',
   },
   't-shirts': {
     label: 'Tees',
@@ -30,27 +30,27 @@ const CATEGORY_VISUALS: Record<string, { label: string; image: string }> = {
   },
   shirts: {
     label: 'Shirts',
-    image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=1200&fit=crop&q=80',
   },
   denims: {
     label: 'Denims',
-    image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1542272604-787c3835535d?w=1200&fit=crop&q=80',
   },
   'formal-pants': {
     label: 'Trousers',
-    image: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=1200&fit=crop&q=80',
   },
   sweatshirts: {
     label: 'Sweats',
-    image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=1200&fit=crop&q=80',
   },
   hoodies: {
     label: 'Hoodies',
-    image: 'https://images.unsplash.com/photo-1556821840-47b2c0d5c829?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1509967419530-da38b4704bc6?w=1200&fit=crop&q=80',
   },
   jackets: {
     label: 'Jackets',
-    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop&q=80',
+    image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=1200&fit=crop&q=80',
   },
 };
 
@@ -208,9 +208,9 @@ function ShopProductCard({
                   }
                   if (totalStock > 0 && totalStock <= 8) {
                     return (
-                      <div className="p-0.5 rounded-full bg-gradient-to-r from-black/80 via-black/40 to-transparent backdrop-blur-sm">
-                        <span className="inline-flex items-center gap-1.5 bg-rose-950/90 text-rose-300 border border-rose-500/50 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold tracking-[0.16em] uppercase shadow-md">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
+                      <div className="p-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1.5 bg-black/95 text-white border border-rose-500/80 backdrop-blur-md px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-mono font-black tracking-[0.16em] uppercase shadow-2xl">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
                           LOW STOCK · {totalStock} LEFT
                         </span>
                       </div>
@@ -382,9 +382,9 @@ const getShopGridItems = (products: Product[]): ShopGridItem[] => {
       items.push({
         type: 'banner',
         id: `banner-${i}`,
-        title: 'DROP 01 — BUILT DIFFERENT',
-        subtitle: 'THE TECHWEAR MANIFESTO',
-        image: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=1200',
+        title: 'HEAVYWEIGHT STREETWEAR ESSENTIALS',
+        subtitle: 'INDUSTRIAL MINIMALISM • BORN IN YELAHANKA',
+        image: 'https://images.unsplash.com/photo-1509967419530-da38b4704bc6?w=1200',
         category: 'sweatshirts',
         spanClass: 'col-span-2 md:col-span-4 w-full h-[320px] md:h-[480px]'
       });
@@ -869,7 +869,7 @@ function ShopContent() {
                 className="w-full relative h-[320px] md:h-[480px] overflow-hidden mb-8 border border-white/[0.08]"
               >
                 <Image
-                  src={CATEGORY_VISUALS[selectedCategory]?.image || CATEGORY_VISUALS['all'].image}
+                  src={(filteredProducts.find(p => p.images && p.images.length > 0)?.images[0]) || CATEGORY_VISUALS[selectedCategory]?.image || CATEGORY_VISUALS['all'].image}
                   alt=""
                   fill
                   priority

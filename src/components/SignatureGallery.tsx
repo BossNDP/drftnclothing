@@ -207,7 +207,7 @@ export default function SignatureGallery({
 
       {/* Overlays */}
       {overlayLeft && (
-        <div className="absolute bottom-3 left-3 z-20 pointer-events-none">{overlayLeft}</div>
+        <div className="absolute top-3 left-3 z-20 pointer-events-none">{overlayLeft}</div>
       )}
       {overlayRight && (
         <div className="absolute top-3 right-3 z-20 pointer-events-none">{overlayRight}</div>
