@@ -113,6 +113,31 @@ export const productVariantSchema = z.object({
   is_active: z.boolean().optional().default(true),
 });
 
+const optionalInt = z.preprocess(
+  (val) => (val === '' || val === undefined || val === null ? null : Number(val)),
+  z.number().int().min(1).optional().nullable()
+);
+
+const optionalUuid = z.preprocess(
+  (val) => (val === '' || val === undefined || val === null ? null : val),
+  z.string().uuid().optional().nullable()
+);
+
+const optionalString = z.preprocess(
+  (val) => (val === '' || val === undefined || val === null ? null : val),
+  z.string().optional().nullable()
+);
+
+const optionalNumber = z.preprocess(
+  (val) => (val === '' || val === undefined || val === null ? null : Number(val)),
+  z.number().nonnegative().optional().nullable()
+);
+
+const weightInt = z.preprocess(
+  (val) => (val === '' || val === undefined || val === null ? 250 : Number(val)),
+  z.number().int().min(1, 'Product weight must be at least 1g')
+);
+
 // Admin Product Create/Update Schema
 export const adminProductSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(150),
@@ -120,20 +145,20 @@ export const adminProductSchema = z.object({
   description: z.string().min(1, 'Description is required'),
   price: z.number().positive('Price must be greater than 0'),
   base_price: z.number().positive().optional(),
-  compare_price: z.number().nonnegative().optional().nullable(),
+  compare_price: optionalNumber,
   category: z.string().min(1, 'Category is required'),
-  subcategory: z.string().optional().nullable(),
+  subcategory: optionalString,
   gender: z.string().min(1, 'Gender is required'),
   images: z.array(z.string().min(1)).default([]),
   sizes: z.array(SizeEnum).default(['XS', 'S', 'M', 'L', 'XL', 'XXL']),
   stock_quantity: z.record(SizeEnum, z.number().int().nonnegative()).default({ XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0, '26': 0, '28': 0, '30': 0, '32': 0, '34': 0, '36': 0, '38': 0 }),
   is_featured: z.boolean().default(false),
-  paired_with: z.string().uuid().optional().nullable(),
+  paired_with: optionalUuid,
   is_active: z.boolean().default(true),
-  weight_grams: z.number().int().min(1, 'Product weight is required and must be at least 1g'),
-  length_cm: z.number().int().min(1).optional().nullable(),
-  breadth_cm: z.number().int().min(1).optional().nullable(),
-  height_cm: z.number().int().min(1).optional().nullable(),
+  weight_grams: weightInt,
+  length_cm: optionalInt,
+  breadth_cm: optionalInt,
+  height_cm: optionalInt,
   variants: z.array(productVariantSchema).optional(),
 });
 

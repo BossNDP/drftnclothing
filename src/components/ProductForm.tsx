@@ -991,26 +991,37 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         };
       });
 
+      const parsedPrice = !isNaN(Number(price)) && Number(price) > 0 ? Math.round(Number(price) * 100) : 0;
+      const parsedCompare = comparePrice && !isNaN(Number(comparePrice)) && Number(comparePrice) > 0 ? Math.round(Number(comparePrice) * 100) : null;
+      const parsedWeight = weight && !isNaN(Number(weight)) && Number(weight) > 0
+        ? (weightUnit === 'kg' ? Math.round(Number(weight) * 1000) : Math.round(Number(weight)))
+        : 250;
+      const parsedLength = length && !isNaN(Number(length)) && Number(length) > 0 ? Math.round(Number(length)) : null;
+      const parsedBreadth = breadth && !isNaN(Number(breadth)) && Number(breadth) > 0 ? Math.round(Number(breadth)) : null;
+      const parsedHeight = height && !isNaN(Number(height)) && Number(height) > 0 ? Math.round(Number(height)) : null;
+      const validPairedWith = isFeatured && pairedWith && /^[0-9a-fA-F-]{36}$/.test(pairedWith.trim()) ? pairedWith.trim() : null;
+      const cleanSubcategory = subcategory && subcategory.trim() ? subcategory.trim() : null;
+
       const payload = {
         name: name.trim(),
         slug: slug.trim(),
         description: finalDescription,
-        price: Math.round(Number(price) * 100), // convert to paise
-        base_price: Math.round(Number(price) * 100),
-        compare_price: comparePrice ? Math.round(Number(comparePrice) * 100) : undefined, // convert to paise
+        price: parsedPrice,
+        base_price: parsedPrice,
+        compare_price: parsedCompare,
         category,
-        subcategory: subcategory || null,
+        subcategory: cleanSubcategory,
         gender,
         images,
         sizes: activeSizes,
         stock_quantity: finalStock,
         is_featured: isFeatured,
-        paired_with: isFeatured && pairedWith ? pairedWith : null,
+        paired_with: validPairedWith,
         is_active: isActive,
-        weight_grams: weightUnit === 'kg' ? Math.round(Number(weight) * 1000) : Math.round(Number(weight)),
-        length_cm: length ? Math.round(Number(length)) : null,
-        breadth_cm: breadth ? Math.round(Number(breadth)) : null,
-        height_cm: height ? Math.round(Number(height)) : null,
+        weight_grams: parsedWeight,
+        length_cm: parsedLength,
+        breadth_cm: parsedBreadth,
+        height_cm: parsedHeight,
         variants: formattedVariants,
       };
 

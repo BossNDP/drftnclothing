@@ -40,6 +40,70 @@ export async function clearProductCache(): Promise<void> {
   }
 }
 
+function sanitizeProductFields(fields: Record<string, any>): Record<string, any> {
+  const sanitized: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(fields)) {
+    if (value === undefined) continue;
+
+    // Integer dimension fields
+    if (['length_cm', 'breadth_cm', 'height_cm'].includes(key)) {
+      if (value === '' || value === null || value === false) {
+        sanitized[key] = null;
+      } else {
+        const num = Number(value);
+        sanitized[key] = isNaN(num) || num <= 0 ? null : Math.round(num);
+      }
+      continue;
+    }
+
+    if (key === 'weight_grams') {
+      if (value === '' || value === null || value === false) {
+        sanitized[key] = 250;
+      } else {
+        const num = Number(value);
+        sanitized[key] = isNaN(num) || num <= 0 ? 250 : Math.round(num);
+      }
+      continue;
+    }
+
+    // UUID field paired_with
+    if (key === 'paired_with') {
+      if (!value || typeof value !== 'string' || value.trim() === '' || !/^[0-9a-fA-F-]{36}$/.test(value.trim())) {
+        sanitized[key] = null;
+      } else {
+        sanitized[key] = value.trim();
+      }
+      continue;
+    }
+
+    // Text field subcategory
+    if (key === 'subcategory') {
+      if (!value || typeof value !== 'string' || value.trim() === '') {
+        sanitized[key] = null;
+      } else {
+        sanitized[key] = value.trim();
+      }
+      continue;
+    }
+
+    // Numeric field compare_price
+    if (key === 'compare_price') {
+      if (value === '' || value === null || value === 0) {
+        sanitized[key] = null;
+      } else {
+        const num = Number(value);
+        sanitized[key] = isNaN(num) || num <= 0 ? null : Math.round(num);
+      }
+      continue;
+    }
+
+    sanitized[key] = value;
+  }
+
+  return sanitized;
+}
+
 export const dbService = {
   // -----------------------------------------------------------------------
   // CATEGORIES
@@ -777,7 +841,6 @@ export const dbService = {
       return fetchCachedThumbnails();
     } else {
       const res = await fetch('/api/categories/thumbnails');
-      if (!res.ok) return { all: '' };
       const data = await res.json();
       return data.thumbnails || { all: '' };
     }
@@ -790,27 +853,31 @@ export const dbService = {
       
       const priceVal = prod.base_price ?? prod.price;
 
+      const rawInsertData = {
+        name: prod.name,
+        slug: prod.slug,
+        description: prod.description,
+        price: priceVal,
+        compare_price: prod.compare_price,
+        category: prod.category,
+        subcategory: prod.subcategory,
+        gender: prod.gender,
+        sizes: prod.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+        stock_quantity: prod.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
+        is_featured: prod.is_featured !== undefined ? prod.is_featured : false,
+        paired_with: prod.paired_with,
+        is_active: prod.is_active !== undefined ? prod.is_active : true,
+        weight_grams: prod.weight_grams,
+        length_cm: prod.length_cm,
+        breadth_cm: prod.breadth_cm,
+        height_cm: prod.height_cm,
+      };
+
+      const cleanInsertData = sanitizeProductFields(rawInsertData);
+
       const [inserted] = await db
         .insert(schema.products)
-        .values({
-          name: prod.name,
-          slug: prod.slug,
-          description: prod.description,
-          price: priceVal,
-          compare_price: prod.compare_price || null,
-          category: prod.category,
-          subcategory: prod.subcategory || null,
-          gender: prod.gender,
-          sizes: prod.sizes || ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-          stock_quantity: prod.stock_quantity || { XS: 0, S: 0, M: 0, L: 0, XL: 0, XXL: 0 },
-          is_featured: prod.is_featured !== undefined ? prod.is_featured : false,
-          paired_with: prod.paired_with ?? null,
-          is_active: prod.is_active !== undefined ? prod.is_active : true,
-          weight_grams: prod.weight_grams,
-          length_cm: prod.length_cm || null,
-          breadth_cm: prod.breadth_cm || null,
-          height_cm: prod.height_cm || null,
-        })
+        .values(cleanInsertData as any)
         .returning();
 
       if (prod.images && prod.images.length > 0) {
@@ -923,16 +990,21 @@ export const dbService = {
       
       const { images, variants, base_price, ...productFields } = updates;
 
+      const cleanFields = sanitizeProductFields(productFields);
+
       const [oldProduct] = await db
         .select()
         .from(schema.products)
         .where(eq(schema.products.id, id));
 
       const updateData: any = {
-        ...productFields,
+        ...cleanFields,
         updated_at: new Date(),
       };
-      if (base_price !== undefined) updateData.price = base_price;
+      if (base_price !== undefined) {
+        const pNum = Number(base_price);
+        if (!isNaN(pNum) && pNum > 0) updateData.price = Math.round(pNum);
+      }
 
       const [updated] = await db
         .update(schema.products)
