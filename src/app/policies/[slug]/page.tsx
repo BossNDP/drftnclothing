@@ -186,6 +186,12 @@ const POLICIES: Record<string, PolicyData> = {
   }
 };
 
+// Aliases for Razorpay Compliance Standards
+POLICIES['refund-policy'] = POLICIES['refund-return-exchange-policy'];
+POLICIES['shipping-policy'] = POLICIES['shipping-and-delivery-policy'];
+POLICIES['terms-of-service'] = POLICIES['terms-and-conditions'];
+POLICIES['privacy'] = POLICIES['privacy-policy'];
+
 export default function PolicyPage({ params }: { params: { slug: string } }) {
   const policy = POLICIES[params.slug];
 

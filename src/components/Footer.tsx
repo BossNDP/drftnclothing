@@ -139,28 +139,27 @@ export default function Footer({ standalone }: { standalone?: boolean }) {
   ];
 
   const customerLinks = [
-    { label: 'Contact Us', href: '/contact' },
-    { label: 'Track My Order', href: '/track' },
-    { label: 'Shipping & Delivery', href: '/policies/shipping-and-delivery-policy' },
-    { label: 'Returns & Exchange', href: '/policies/refund-return-exchange-policy' },
-    { label: 'Size Chart Disclaimer', href: '/policies/disclaimer' },
-    { label: 'Cancellation Rules', href: '/policies/cancellation-policy' }
+    { label: 'Contact Support', href: '/contact' },
+    { label: 'Track Order', href: '/track' },
+    { label: 'Shipping & Delivery Policy', href: '/policies/shipping-policy' },
+    { label: 'Refund & Return Policy', href: '/policies/refund-policy' },
+    { label: 'Cancellation Policy', href: '/policies/cancellation-policy' },
+    { label: 'Store Disclaimer', href: '/policies/disclaimer' }
   ];
 
   const companyLinks = [
     { label: 'About Us', href: '/about' },
-    { label: 'Careers (Fulfillment)', href: '/policies/disclaimer' },
-    { label: 'DRFTN Lookbook', href: '/policies/disclaimer' },
-    { label: 'Store Locations', href: '/policies/disclaimer' },
+    { label: 'DRFTN Store Bengaluru', href: '/contact' },
+    { label: 'Grievance Redressal', href: '/policies/grievance-redressal-policy' },
     { label: 'Bulk Orders', href: '/contact' }
   ];
 
   const legalLinks = [
     { label: 'Terms & Conditions', href: '/policies/terms-and-conditions' },
     { label: 'Privacy Policy', href: '/policies/privacy-policy' },
-    { label: 'Cookie Policy', href: '/policies/cookie-policy' },
-    { label: 'Grievance Redressal', href: '/policies/grievance-redressal-policy' },
-    { label: 'Store Disclaimer', href: '/policies/disclaimer' }
+    { label: 'Refund & Return Policy', href: '/policies/refund-policy' },
+    { label: 'Shipping & Delivery Policy', href: '/policies/shipping-policy' },
+    { label: 'Cookie Policy', href: '/policies/cookie-policy' }
   ];
 
   return (

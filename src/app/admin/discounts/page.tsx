@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { DiscountCode } from '@/types';
 import { Plus, CheckCircle2, XCircle, Search, Trash2, X, Tag } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
+import { DriftModeAdminCard } from '@/components/DriftModeAdminCard';
 
 export default function AdminDiscounts() {
   const { addToast } = useToast();
@@ -105,7 +106,7 @@ export default function AdminDiscounts() {
   };
 
   const filteredDiscounts = discounts.filter(d => 
-    d.code.toLowerCase().includes(searchTerm.toLowerCase())
+    !d.code.startsWith('DRIFT-') && d.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -113,16 +114,19 @@ export default function AdminDiscounts() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-200/80 pb-6">
         <div>
           <h1 className="text-2xl font-extrabold tracking-widest uppercase text-zinc-900">Discount Codes</h1>
-          <p className="text-zinc-500 text-sm mt-1">Create and manage promotional codes and sales.</p>
+          <p className="text-zinc-500 text-sm mt-1">Create and manage promotional codes and storewide sales.</p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
           className="bg-zinc-900 hover:bg-zinc-700 text-white px-6 py-3 font-bold uppercase tracking-widest text-xs transition-colors flex items-center gap-2 rounded-lg"
         >
           <Plus className="w-4 h-4" />
-          Create Code
+          Create Custom Code
         </button>
       </div>
+
+      {/* Storewide Drift Mode Sale Controls */}
+      <DriftModeAdminCard />
 
       <div className="bg-white border border-zinc-200/60 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] overflow-hidden">
         <div className="p-4 border-b border-zinc-100 flex items-center gap-4">

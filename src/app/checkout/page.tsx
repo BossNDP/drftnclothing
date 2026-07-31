@@ -1050,59 +1050,29 @@ function isGibberishText(str: string): boolean {
                           </div>
                         </label>
 
-                        {/* Express Delivery Option */}
-                        {checkingCheckoutEligibility ? (
-                          <div className="p-3 border border-zinc-850 bg-zinc-950/25 rounded-lg text-zinc-500 text-xs animate-pulse font-bold uppercase tracking-wider">
-                            Checking Express availability...
-                          </div>
-                        ) : checkoutEligibility?.borzoEligible ? (
-                          <label className={`flex items-start gap-3 p-3 border transition-colors cursor-pointer rounded-lg ${
-                            shippingProvider === 'express' ? 'border-white bg-zinc-900/40' : 'border-zinc-850 bg-zinc-950/20'
-                          }`}>
-                            <input
-                              type="radio"
-                              name="shipping_provider"
-                              checked={shippingProvider === 'express'}
-                              onChange={() => {
-                                setShippingProvider('express');
-                                setPaymentMethod('razorpay');
-                              }}
-                              className="mt-1 accent-white"
-                            />
-                            <div className="flex-1">
-                              <span className="font-bold text-xs block text-brand-offwhite uppercase tracking-wider flex items-center gap-1.5">
-                                ⚡ Express Delivery (Borzo)
-                                {calculateTotalBreakdown().expressCharge === 0 && (
-                                  <span className="text-[9px] bg-green-950 text-green-400 border border-green-900 px-1 rounded uppercase tracking-wider font-extrabold">Free</span>
-                                )}
+                        {/* Express Delivery Option — COMING SOON */}
+                        <div className="flex items-start gap-3 p-3.5 border border-zinc-800 bg-zinc-950/30 rounded-lg opacity-65 select-none relative overflow-hidden">
+                          <input
+                            type="radio"
+                            name="shipping_provider"
+                            disabled
+                            checked={false}
+                            className="mt-1 accent-zinc-500 cursor-not-allowed"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs block text-zinc-300 uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                                ⚡ Express 120-Min Delivery (Borzo)
                               </span>
-                              <span className="text-[10px] text-zinc-500 block mt-0.5 font-mono">
-                                {calculateTotalBreakdown().expressCharge > 0 
-                                  ? `₹${(calculateTotalBreakdown().expressCharge / 100).toFixed(0)} Surcharge • ` 
-                                  : '₹0 Surcharge (Cart > ₹1499) • '}
-                                {getExpressPromise()}
+                              <span className="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded font-mono font-bold tracking-widest uppercase">
+                                COMING SOON
                               </span>
                             </div>
-                          </label>
-                        ) : (
-                          <div className="flex items-start gap-3 p-3 border border-zinc-900 bg-zinc-950/10 rounded-lg opacity-40 select-none">
-                            <input
-                              type="radio"
-                              name="shipping_provider"
-                              disabled
-                              checked={false}
-                              className="mt-1 accent-zinc-500"
-                            />
-                            <div className="flex-1">
-                              <span className="font-bold text-xs block text-zinc-600 uppercase tracking-wider">
-                                ⚡ Express Delivery (Borzo)
-                              </span>
-                              <span className="text-[10px] text-rose-500/80 block mt-0.5">
-                                Unavailable for this PIN code (Rider coverage limit)
-                              </span>
-                            </div>
+                            <span className="text-[10px] text-zinc-500 block mt-1 font-mono">
+                              Same-day hyper-local delivery in Bengaluru is currently under API integration. Standard shipping available.
+                            </span>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   )}
