@@ -436,11 +436,29 @@ export async function POST(request: Request) {
       shippingCharge = calculatedSubtotal >= freeShippingThreshold ? 0 : defaultShippingCharge;
     }
 
-    // 5. Server-side discount validation (pre-flight only — final check + lock happens inside the transaction)
+    // 5. Server-side discount validation
     let discountAmount = 0;
     let validatedCode: string | undefined = undefined;
 
-    if (discountCode) {
+    if (cleanCode && cleanCode.startsWith('DRIFT-')) {
+      const [driftCoupon] = await db
+        .select()
+        .from(schema.driftModeCoupons)
+        .where(eq(schema.driftModeCoupons.code, cleanCode))
+        .limit(1);
+
+      if (!driftCoupon) {
+        return NextResponse.json({ error: 'Invalid Drift Mode coupon code' }, { status: 400 });
+      }
+
+      if (driftCoupon.used) {
+        return NextResponse.json({ error: 'This Drift Mode coupon has already been used' }, { status: 400 });
+      }
+
+      discountAmount = Math.round(calculatedSubtotal * (driftCoupon.discount_percent / 100));
+      discountAmount = Math.min(discountAmount, calculatedSubtotal);
+      validatedCode = cleanCode;
+    } else if (discountCode) {
       const dbCode = dbCodeRows[0];
 
       if (!dbCode) {

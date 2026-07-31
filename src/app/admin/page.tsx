@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { Order, Product } from '@/types';
 import { IndianRupee, ShoppingBag, Package, TrendingUp, AlertTriangle, Users } from 'lucide-react';
 import Link from 'next/link';
+import { DriftModeAdminCard } from '@/components/DriftModeAdminCard';
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -130,6 +131,9 @@ export default function AdminDashboard() {
           <p className="text-2xl font-mono font-bold text-zinc-900">{activeUsersCount}</p>
         </div>
       </div>
+
+      {/* Drift Mode Admin Card */}
+      <DriftModeAdminCard />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Orders List */}

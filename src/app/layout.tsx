@@ -12,6 +12,7 @@ import PageTransition from '@/components/PageTransition';
 import SmoothScrollProvider from '@/components/SmoothScrollProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthSessionProvider } from '@/context/AuthContext';
+import { DriftModeProvider } from '@/context/DriftModeContext';
 import BfcacheHandler from '@/components/BfcacheHandler';
 
 import { Outfit, Oxanium, Space_Mono } from 'next/font/google';
@@ -38,6 +39,8 @@ const spaceMono = Space_Mono({
 const WhatsAppButton = dynamic(() => import('@/components/WhatsAppButton'), { ssr: false });
 const PushPrompt = dynamic(() => import('@/components/PushPrompt'), { ssr: false });
 const NotificationToast = dynamic(() => import('@/components/NotificationToast'), { ssr: false });
+const TopBanner = dynamic(() => import('@/components/TopBanner'), { ssr: false });
+const DriftModePopup = dynamic(() => import('@/components/DriftModePopup'), { ssr: false });
 
 export const metadata: Metadata = {
   title: {
@@ -217,28 +220,36 @@ export default function RootLayout({
         <body suppressHydrationWarning className={`${outfit.variable} ${oxanium.variable} ${spaceMono.variable} antialiased min-h-screen flex flex-col bg-brand-black text-brand-offwhite p-0 m-0`}>
           <SmoothScrollProvider>
             <AuthSessionProvider>
-              {/* Global Navbar */}
-              <Navbar />
+              <DriftModeProvider>
+                {/* Drift Mode Announcement Banner */}
+                <TopBanner />
 
-              {/* Main Content Area */}
-              <main className="flex-1 flex flex-col relative w-full p-0 m-0">
-                <PageTransition>{children}</PageTransition>
-              </main>
+                {/* Global Navbar */}
+                <Navbar />
 
-              {/* Global Footer */}
-              <Footer />
+                {/* Main Content Area */}
+                <main className="flex-1 flex flex-col relative w-full p-0 m-0">
+                  <PageTransition>{children}</PageTransition>
+                </main>
 
-              {/* Global Navigation Drawers and Widgets */}
-              <MiniCart />
-              <MobileNavbar />
-              <WhatsAppButton />
-              <ToastContainer />
-              <AddToCartAnimation />
-              <PushPrompt />
-              <BfcacheHandler />
-              <NotificationToast />
-              {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
-              <div id="clerk-captcha" />
+                {/* Global Footer */}
+                <Footer />
+
+                {/* Drift Mode Popup */}
+                <DriftModePopup />
+
+                {/* Global Navigation Drawers and Widgets */}
+                <MiniCart />
+                <MobileNavbar />
+                <WhatsAppButton />
+                <ToastContainer />
+                <AddToCartAnimation />
+                <PushPrompt />
+                <BfcacheHandler />
+                <NotificationToast />
+                {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
+                <div id="clerk-captcha" />
+              </DriftModeProvider>
             </AuthSessionProvider>
           </SmoothScrollProvider>
         </body>

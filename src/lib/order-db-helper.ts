@@ -76,12 +76,19 @@ export async function confirmAndWriteOrder(checkout: any, razorpayPaymentId: str
       }
     }
 
-    // ── Step 2: Increment discount coupon usage count ──
+    // ── Step 2: Increment discount coupon usage count / mark drift coupon used ──
     if (checkout.discount_code) {
-      await tx
-        .update(schema.discountCodes)
-        .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
-        .where(eq(schema.discountCodes.code, checkout.discount_code));
+      if (checkout.discount_code.startsWith('DRIFT-')) {
+        await tx
+          .update(schema.driftModeCoupons)
+          .set({ used: true, used_at: new Date() })
+          .where(eq(schema.driftModeCoupons.code, checkout.discount_code));
+      } else {
+        await tx
+          .update(schema.discountCodes)
+          .set({ used_count: sql`${schema.discountCodes.used_count} + 1` })
+          .where(eq(schema.discountCodes.code, checkout.discount_code));
+      }
     }
 
     // ── Step 3: Insert order row (with order_number collision retry) ──

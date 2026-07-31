@@ -7,6 +7,7 @@ import { getOptimizedImageUrl } from '@/lib/cloudinary';
 import { ChevronLeft, Lock, CheckCircle, Package, ArrowRight, ShieldCheck, MapPin } from 'lucide-react';
 import { useToast } from '@/components/ToastContainer';
 import { useAuthSession } from '@/context/AuthContext';
+import CheckoutCoupon from '@/components/CheckoutCoupon';
 
 import { useRouter } from 'next/navigation';
 
@@ -1303,6 +1304,8 @@ export default function CheckoutPage() {
                 </div>
               ))}
             </div>
+
+            <CheckoutCoupon subtotal={subtotal} />
 
             <div className="border-t border-zinc-800 pt-6 space-y-3 text-xs uppercase tracking-wider">
               <div className="flex justify-between text-zinc-500">

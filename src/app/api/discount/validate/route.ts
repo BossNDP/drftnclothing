@@ -17,7 +17,42 @@ export async function POST(request: Request) {
     const { code, subtotal, email, phone } = validationResult.data; // subtotal is in paise
     const cleanCode = code.toUpperCase().trim();
 
-    // 2. Fetch discount from Neon DB
+    // 2. Check if Drift Mode coupon
+    if (cleanCode.startsWith('DRIFT-')) {
+      const [settings] = await db
+        .select()
+        .from(schema.driftModeSettings)
+        .where(eq(schema.driftModeSettings.id, 1))
+        .limit(1);
+
+      if (!settings || !settings.is_active) {
+        return NextResponse.json({ valid: false, message: 'Drift Mode is currently inactive.' });
+      }
+
+      const [driftCoupon] = await db
+        .select()
+        .from(schema.driftModeCoupons)
+        .where(eq(schema.driftModeCoupons.code, cleanCode))
+        .limit(1);
+
+      if (!driftCoupon) {
+        return NextResponse.json({ valid: false, message: 'Invalid Drift Mode coupon code.' });
+      }
+
+      if (driftCoupon.used) {
+        return NextResponse.json({ valid: false, message: 'This Drift Mode coupon has already been used.' });
+      }
+
+      return NextResponse.json({
+        valid: true,
+        discount_type: 'percent',
+        discount_value: driftCoupon.discount_percent,
+        max_discount_amount: null,
+        message: `DRIFT MODE — ${driftCoupon.discount_percent}% OFF APPLIED`,
+      });
+    }
+
+    // 3. Fetch standard discount from Neon DB
     const [discount] = await db
       .select()
       .from(schema.discountCodes)

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, unique, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, pgEnum, unique, index, serial } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
 // 0. Order Status Enum
@@ -387,5 +387,28 @@ export const auditLogs = pgTable('audit_logs', {
 }, (t) => [
   index('audit_logs_order_id_idx').on(t.order_id),
   index('audit_logs_correlation_id_idx').on(t.correlation_id),
+]);
+
+// 21. Drift Mode Settings Table
+export const driftModeSettings = pgTable("drift_mode_settings", {
+  id: serial("id").primaryKey(),
+  is_active: boolean("is_active").notNull().default(false),
+  discount_percent: integer("discount_percent").notNull().default(20),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 22. Drift Mode Coupons Table
+export const driftModeCoupons = pgTable("drift_mode_coupons", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  user_id: text("user_id").notNull().unique(),
+  code: text("code").notNull().unique(),
+  discount_percent: integer("discount_percent").notNull(),
+  used: boolean("used").notNull().default(false),
+  used_at: timestamp("used_at", { withTimezone: true }),
+  order_id: uuid("order_id"),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('drift_mode_coupons_user_id_idx').on(t.user_id),
+  index('drift_mode_coupons_code_idx').on(t.code),
 ]);
 
