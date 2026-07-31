@@ -38,13 +38,14 @@ export const TopBanner: React.FC = () => {
 
   if (!isActive) return null;
 
-  const item = `DRIFT MODE ACTIVE • FLAT ${discountPercent}% OFF FIRST ORDER • FREE SHIPPING & COD ACROSS INDIA • `;
+  const repeatCount = 6;
+  const items = Array.from({ length: repeatCount });
 
   return (
     <div
       ref={containerRef}
       aria-label="Drift Mode Announcement"
-      className="relative w-full bg-black h-6 border-b border-zinc-900 text-white flex items-center overflow-hidden select-none z-40"
+      className="relative w-full bg-black h-7 border-b border-zinc-900 text-white flex items-center overflow-hidden select-none z-40"
     >
       <style jsx>{`
         @keyframes driftMarquee {
@@ -55,11 +56,22 @@ export const TopBanner: React.FC = () => {
             transform: translate3d(-50%, 0, 0);
           }
         }
+        @keyframes dotPulse {
+          0%, 100% {
+            opacity: 0.4;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
         .animate-drift-marquee {
           display: inline-flex;
           white-space: nowrap;
           will-change: transform;
-          animation: driftMarquee 90s linear infinite;
+          animation: driftMarquee 70s linear infinite;
+        }
+        .animate-dot-pulse {
+          animation: dotPulse 1.5s ease-in-out infinite;
         }
         @media (prefers-reduced-motion: reduce) {
           .animate-drift-marquee {
@@ -70,13 +82,37 @@ export const TopBanner: React.FC = () => {
       `}</style>
 
       <div
-        className="animate-drift-marquee text-[10px] font-mono tracking-[0.25em] uppercase font-medium text-zinc-300"
+        className="animate-drift-marquee text-[10px] sm:text-[11px] font-mono tracking-[0.12em] uppercase font-bold text-white"
         style={{
           animationPlayState: isPaused ? 'paused' : 'running',
         }}
       >
-        <span>{item.repeat(8)}</span>
-        <span>{item.repeat(8)}</span>
+        <div className="inline-flex items-center">
+          {items.map((_, i) => (
+            <span key={`a-${i}`} className="inline-flex items-center mx-4">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-white animate-dot-pulse mr-2.5" />
+              <span>DRIFT MODE: ON</span>
+              <span className="mx-3 text-zinc-600 font-normal">•</span>
+              <span>FLAT {discountPercent}% OFF YOUR FIRST ORDER</span>
+              <span className="mx-3 text-zinc-600 font-normal">•</span>
+              <span>FREE SHIPPING & COD ACROSS INDIA</span>
+              <span className="mx-3 text-zinc-600 font-normal">•</span>
+            </span>
+          ))}
+        </div>
+        <div className="inline-flex items-center">
+          {items.map((_, i) => (
+            <span key={`b-${i}`} className="inline-flex items-center mx-4">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-white animate-dot-pulse mr-2.5" />
+              <span>DRIFT MODE: ON</span>
+              <span className="mx-3 text-zinc-600 font-normal">•</span>
+              <span>FLAT {discountPercent}% OFF YOUR FIRST ORDER</span>
+              <span className="mx-3 text-zinc-600 font-normal">•</span>
+              <span>FREE SHIPPING & COD ACROSS INDIA</span>
+              <span className="mx-3 text-zinc-600 font-normal">•</span>
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );
