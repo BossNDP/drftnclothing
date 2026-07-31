@@ -2,14 +2,6 @@
 
 /**
  * AnnouncementTicker — Option A: Rotating single-message ticker
- *
- * One centered value-prop displayed at a time.
- * Crossfades + slides to the next message every 3.5 seconds.
- * A thin amber progress bar fills left-to-right and resets on each rotation —
- * gives a pacing indicator so the transition never feels random or glitchy.
- *
- * Messages are kept 1:1 with the old marquee content (COD, free shipping,
- * Born in Yelahanka, etc.) — only the presentation mechanism changes.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -26,11 +18,6 @@ const MESSAGES = [
 
 const DURATION = 3500; // ms per message
 
-/* ─── Progress bar animation key trick ───────────────────────────────── */
-// Increment a key on each rotation so React remounts the bar,
-// restarting the CSS animation cleanly without a JS timer.
-
-/* ─── Variants ────────────────────────────────────────────────────────── */
 const msgVariants = {
   enter: { opacity: 0, y: 8 },
   center: {
@@ -45,17 +32,12 @@ const msgVariants = {
   },
 };
 
-/* ─── Component ───────────────────────────────────────────────────────── */
 export default function AnnouncementTicker() {
   const { isActive } = useDriftMode();
   const [idx, setIdx] = useState(0);
   const [barKey, setBarKey] = useState(0);
   const [isRunning, setIsRunning] = useState(true);
   const containerRef = React.useRef<HTMLElement>(null);
-
-  if (isActive) {
-    return <TopBanner />;
-  }
 
   useEffect(() => {
     let t: NodeJS.Timeout | null = null;
@@ -109,6 +91,10 @@ export default function AnnouncementTicker() {
     }
   }, []);
 
+  if (isActive) {
+    return <TopBanner />;
+  }
+
   const msg = MESSAGES[idx];
 
   return (
@@ -152,7 +138,6 @@ export default function AnnouncementTicker() {
               {msg.label}
             </span>
 
-            {/* Divider — simple vertical line */}
             <span className="hidden sm:inline-block text-zinc-700 font-mono text-[10px]" aria-hidden="true">•</span>
 
             <span className="text-zinc-400 text-[10px] tracking-wider uppercase font-mono hidden sm:inline leading-none">
@@ -162,7 +147,7 @@ export default function AnnouncementTicker() {
         </AnimatePresence>
       </div>
 
-      {/* Progress bar — fills left-to-right, resets on each rotation */}
+      {/* Progress bar */}
       <div className="absolute bottom-0 inset-x-0 h-[1.5px] bg-zinc-900 overflow-hidden" aria-hidden="true">
         <div
           key={barKey}
