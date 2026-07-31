@@ -1,55 +1,16 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, desc, sql, ilike, or } from 'drizzle-orm';
+import { eq, desc, inArray, asc } from 'drizzle-orm';
 import { dbService } from '@/lib/db';
 import { getOptimizedImageUrl } from '@/lib/cloudinary';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * GET /api/admin/wishlist
- * Server-side paginated list of wishlist records with search, status filtering,
- * customer resolution, and customer detail stats.
- */
 export async function GET(request: Request) {
   try {
     await dbService.ensureWishlistTableExists();
 
-    const { searchParams } = new URL(request.url);
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const limit = Math.min(100, Math.max(10, parseInt(searchParams.get('limit') || '25', 10)));
-    const search = searchParams.get('search')?.trim() || '';
-    const statusFilter = searchParams.get('status') || 'all';
-
-    // 1. Fetch all users from Neon to resolve customer names & emails
-    const localUsers = await db.select().from(schema.users);
-    const userMap = new Map(localUsers.map((u: any) => [u.id, u]));
-
-    // 2. Fetch all orders to compute customer stats and purchase status
-    const allOrders = await db.select().from(schema.orders);
-
-    const userPurchasedProducts = new Map<string, Set<string>>();
-    const userOrderStats = new Map<string, { totalOrders: number; totalSpentPaise: number }>();
-
-    for (const order of allOrders) {
-      if (!order.user_id || order.order_status === 'cancelled') continue;
-
-      const stats = userOrderStats.get(order.user_id) || { totalOrders: 0, totalSpentPaise: 0 };
-      stats.totalOrders += 1;
-      stats.totalSpentPaise += order.total_amount || 0;
-      userOrderStats.set(order.user_id, stats);
-
-      const boughtSet = userPurchasedProducts.get(order.user_id) || new Set<string>();
-      if (Array.isArray(order.items)) {
-        for (const item of order.items as any[]) {
-          if (item.id) boughtSet.add(item.id);
-        }
-      }
-      userPurchasedProducts.set(order.user_id, boughtSet);
-    }
-
-    // 3. Fetch wishlist records joined with products
     const wishlistRows = await db
       .select({
         id: schema.wishlist.id,
@@ -64,20 +25,125 @@ export async function GET(request: Request) {
       .innerJoin(schema.products, eq(schema.wishlist.product_id, schema.products.id))
       .orderBy(desc(schema.wishlist.created_at));
 
-    // Group all wishlisted products per user for customer drawer details
+    if (wishlistRows.length === 0) {
+      return NextResponse.json({ items: [] });
+    }
+
+    const pIds = Array.from(new Set(wishlistRows.map((r: any) => r.product.id))) as string[];
+    const [allProductImages, allProductVariants] = pIds.length > 0
+      ? await Promise.all([
+          db
+            .select()
+            .from(schema.productImages)
+            .where(inArray(schema.productImages.product_id, pIds))
+            .orderBy(asc(schema.productImages.sort_order)),
+          db
+            .select()
+            .from(schema.productVariants)
+            .where(inArray(schema.productVariants.product_id, pIds))
+            .orderBy(asc(schema.productVariants.created_at)),
+        ])
+      : [[], []];
+
+    const imagesByProductId: Record<string, string[]> = {};
+    for (const img of allProductImages) {
+      if (img.sort_order !== 99 && img.image_url) {
+        if (!imagesByProductId[img.product_id]) imagesByProductId[img.product_id] = [];
+        imagesByProductId[img.product_id].push(img.image_url);
+      }
+    }
+
+    const variantsByProductId: Record<string, any[]> = {};
+    for (const v of allProductVariants) {
+      if (!variantsByProductId[v.product_id]) variantsByProductId[v.product_id] = [];
+      variantsByProductId[v.product_id].push(v);
+    }
+
+    const getPrimaryImage = (prod: typeof schema.products.$inferSelect): string => {
+      const prodImages = imagesByProductId[prod.id];
+      const variantImages = variantsByProductId[prod.id]?.[0]?.images;
+      let rawImage =
+        (prodImages && prodImages.length > 0 ? prodImages[0] : null) ||
+        (variantImages && variantImages.length > 0 ? variantImages[0] : null) ||
+        (prod.images && prod.images.length > 0 ? prod.images[0] : null) ||
+        'https://www.drftnclothing.in/og-default.jpg';
+
+      if (!rawImage.startsWith('http://') && !rawImage.startsWith('https://')) {
+        rawImage = `https://www.drftnclothing.in${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
+      }
+      return getOptimizedImageUrl(rawImage, 800);
+    };
+
+    const userIds = Array.from(new Set(wishlistRows.map((r: any) => r.userId))) as string[];
+    const dbUsers: any[] = userIds.length > 0
+      ? await db.select().from(schema.users).where(inArray(schema.users.id, userIds))
+      : [];
+
+    const userMap = new Map(dbUsers.map((u: any) => [u.id, u]));
+
+    const { clerkClient } = await import('@clerk/nextjs/server');
+    for (const uId of userIds) {
+      if (!userMap.has(uId)) {
+        try {
+          const client = await clerkClient();
+          const clerkUser = await client.users.getUser(uId);
+          if (clerkUser) {
+            const primaryEmail = clerkUser.emailAddresses.find(
+              (e: any) => e.id === clerkUser.primaryEmailAddressId
+            ) || clerkUser.emailAddresses[0];
+            const primaryPhone = clerkUser.phoneNumbers.find(
+              (p: any) => p.id === clerkUser.primaryPhoneNumberId
+            ) || clerkUser.phoneNumbers[0];
+
+            userMap.set(uId, {
+              id: clerkUser.id,
+              name: `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || clerkUser.username || 'Customer',
+              email: primaryEmail?.emailAddress || null,
+              phone: primaryPhone?.phoneNumber || null,
+              createdAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : new Date(),
+            } as any);
+          }
+        } catch (cErr) {
+          console.warn(`[Admin Wishlist] Could not resolve Clerk user ${uId}:`, cErr);
+        }
+      }
+    }
+
+    const allOrders = await db.select().from(schema.orders);
+    const userPurchasedProducts = new Map<string, Set<string>>();
+    const userOrderStats = new Map<string, { totalOrders: number; totalSpentPaise: number }>();
+
+    for (const order of allOrders) {
+      const uId = order.user_id;
+      if (!uId) continue;
+
+      if (!userPurchasedProducts.has(uId)) {
+        userPurchasedProducts.set(uId, new Set());
+      }
+      const pSet = userPurchasedProducts.get(uId)!;
+      for (const item of order.items) {
+        if (item.product_id) pSet.add(item.product_id);
+      }
+
+      const currentStats = userOrderStats.get(uId) || { totalOrders: 0, totalSpentPaise: 0 };
+      userOrderStats.set(uId, {
+        totalOrders: currentStats.totalOrders + 1,
+        totalSpentPaise: currentStats.totalSpentPaise + order.total_amount,
+      });
+    }
+
     const userWishlistMap = new Map<string, Array<{ name: string; image: string; price: number; slug: string }>>();
     for (const row of wishlistRows) {
       const existing = userWishlistMap.get(row.userId) || [];
       existing.push({
         name: row.product.name,
-        image: getOptimizedImageUrl(row.product.images[0] || 'https://drftnclothing.in/og-default.jpg', 400),
+        image: getPrimaryImage(row.product),
         price: row.product.price,
         slug: row.product.slug,
       });
       userWishlistMap.set(row.userId, existing);
     }
 
-    // 4. Enrich and status-tag items
     const enrichedItems = wishlistRows.map((row: any) => {
       const user: any = userMap.get(row.userId);
       const customerName = user?.name || 'Registered Customer';
@@ -112,7 +178,7 @@ export async function GET(request: Request) {
           slug: row.product.slug,
           price: row.product.price,
           comparePrice: row.product.compare_price,
-          image: getOptimizedImageUrl(row.product.images[0] || 'https://drftnclothing.in/og-default.jpg', 800),
+          image: getPrimaryImage(row.product),
           category: row.product.category,
           stockCount: totalStock,
         },
@@ -132,63 +198,12 @@ export async function GET(request: Request) {
       };
     });
 
-    // 5. Apply Search & Status Filters
-    let filtered = enrichedItems;
-
-    if (search) {
-      const query = search.toLowerCase();
-      filtered = filtered.filter(
-        (item: any) =>
-          item.customerName.toLowerCase().includes(query) ||
-          item.customerEmail.toLowerCase().includes(query) ||
-          item.product.name.toLowerCase().includes(query)
-      );
-    }
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((item: any) => item.status === statusFilter);
-    }
-
-    const totalItems = filtered.length;
-    const totalPages = Math.ceil(totalItems / limit) || 1;
-    const offset = (page - 1) * limit;
-    const paginatedItems = filtered.slice(offset, offset + limit);
-
-    return NextResponse.json({
-      items: paginatedItems,
-      pagination: {
-        page,
-        limit,
-        totalItems,
-        totalPages,
-      },
-    });
-  } catch (err: any) {
-    console.error('[Admin Wishlist API] Error:', err);
+    return NextResponse.json({ items: enrichedItems });
+  } catch (error: any) {
+    console.error('[Admin Wishlist API] GET exception:', error);
     return NextResponse.json(
-      { error: err.message || 'Failed to fetch wishlist items' },
+      { error: error?.message || 'Failed to fetch wishlist admin data' },
       { status: 500 }
     );
-  }
-}
-
-/**
- * DELETE /api/admin/wishlist
- * Allows admins to remove a specific wishlist record.
- */
-export async function DELETE(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
-
-    if (!id) {
-      return NextResponse.json({ error: 'Wishlist ID required' }, { status: 400 });
-    }
-
-    await db.delete(schema.wishlist).where(eq(schema.wishlist.id, id));
-
-    return NextResponse.json({ success: true, message: 'Wishlist item removed' });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

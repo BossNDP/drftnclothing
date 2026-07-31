@@ -19,10 +19,20 @@ interface WishlistReminderEmailProps {
   siteUrl?: string;
 }
 
+function formatEmailPrice(val: number | null | undefined): string | null {
+  if (val === null || val === undefined || isNaN(val) || val <= 0) {
+    return null;
+  }
+  // If val is stored in paise (e.g. 600000 = ₹6,000, 129900 = ₹1,299), divide by 100.
+  // If val is already in rupees (e.g. 6000, 1299, 60), keep as is.
+  const inRupees = val >= 10000 ? Math.round(val / 100) : Math.round(val);
+  return `₹${inRupees.toLocaleString('en-IN')}`;
+}
+
 export const WishlistReminderEmail: React.FC<WishlistReminderEmailProps> = ({
   customerName = 'Valued Customer',
   items,
-  siteUrl = 'https://drftnclothing.in',
+  siteUrl = 'https://www.drftnclothing.in',
 }) => {
   const isMultiItem = items.length > 1;
   const headline = isMultiItem
@@ -116,7 +126,7 @@ export const WishlistReminderEmail: React.FC<WishlistReminderEmailProps> = ({
                         fontSize: '11px',
                         fontWeight: 700,
                         letterSpacing: '0.2em',
-                        color: '#EC4899',
+                        color: '#FFFFFF',
                         textTransform: 'uppercase',
                         marginBottom: '8px',
                       }}
@@ -153,10 +163,8 @@ export const WishlistReminderEmail: React.FC<WishlistReminderEmailProps> = ({
                 <tr>
                   <td style={{ padding: '0 28px 24px 28px' }}>
                     {items.map((item, idx) => {
-                      const priceFormatted = `₹${Math.round(item.price / 100).toLocaleString('en-IN')}`;
-                      const comparePriceFormatted = item.compare_price
-                        ? `₹${Math.round(item.compare_price / 100).toLocaleString('en-IN')}`
-                        : null;
+                      const priceFormatted = formatEmailPrice(item.price) || '₹0';
+                      const comparePriceFormatted = formatEmailPrice(item.compare_price);
                       const productUrl = `${siteUrl}/shop/${item.slug}`;
 
                       return (
@@ -206,39 +214,39 @@ export const WishlistReminderEmail: React.FC<WishlistReminderEmailProps> = ({
                                 <div
                                   style={{
                                     display: 'inline-block',
-                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
                                     borderRadius: '4px',
                                     padding: '3px 8px',
                                     fontFamily: 'monospace',
                                     fontSize: '10px',
                                     fontWeight: 700,
-                                    color: '#F87171',
+                                    color: '#FFFFFF',
                                     letterSpacing: '0.15em',
                                     textTransform: 'uppercase',
                                     marginBottom: '10px',
                                   }}
                                 >
-                                  🔥 ONLY {item.stockCount} LEFT IN STOCK
+                                  ONLY {item.stockCount} LEFT IN STOCK
                                 </div>
                               ) : comparePriceFormatted ? (
                                 <div
                                   style={{
                                     display: 'inline-block',
-                                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
                                     borderRadius: '4px',
                                     padding: '3px 8px',
                                     fontFamily: 'monospace',
                                     fontSize: '10px',
                                     fontWeight: 700,
-                                    color: '#34D399',
+                                    color: '#FFFFFF',
                                     letterSpacing: '0.15em',
                                     textTransform: 'uppercase',
                                     marginBottom: '10px',
                                   }}
                                 >
-                                  ⚡ PRICE DROP ALERT
+                                  PRICE DROP ALERT
                                 </div>
                               ) : null}
 
@@ -300,7 +308,7 @@ export const WishlistReminderEmail: React.FC<WishlistReminderEmailProps> = ({
                                 style={{
                                   fontFamily: 'sans-serif',
                                   fontSize: '12px',
-                                  color: '#FBBF24',
+                                  color: '#FFFFFF',
                                   marginBottom: '18px',
                                 }}
                               >

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import * as schema from '@/db/schema';
-import { eq, sql, inArray } from 'drizzle-orm';
+import { eq, sql, inArray, asc } from 'drizzle-orm';
 import { dbService } from '@/lib/db';
 import { sendWishlistReminderEmail } from '@/lib/email';
 import { getOptimizedImageUrl } from '@/lib/cloudinary';
@@ -11,13 +11,6 @@ export const dynamic = 'force-dynamic';
 
 /**
  * DRFTN Automated Wishlist Email Marketing Cron Endpoint
- *
- * GET /api/cron/wishlist-reminders
- * Evaluates wishlist items in Neon DB:
- * 1. Checks items added > 24 hours ago with reminder_count < 2.
- * 2. Excludes items the user has already purchased in orders.
- * 3. Consolidates multiple wishlisted items per user into ONE single email.
- * 4. Updates last_reminder_sent_at and reminder_count in Neon DB.
  */
 export async function GET(request: Request) {
   try {
@@ -26,7 +19,6 @@ export async function GET(request: Request) {
     const forceRun = searchParams.get('force') === 'true';
     const cronSecret = process.env.CRON_SECRET;
 
-    // Secret Guard (if CRON_SECRET is configured)
     if (cronSecret && secretParam !== cronSecret) {
       const authHeader = request.headers.get('Authorization');
       if (authHeader !== `Bearer ${cronSecret}`) {
@@ -34,10 +26,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // 1. Ensure table and new columns (last_reminder_sent_at, reminder_count) exist
     await dbService.ensureWishlistTableExists();
 
-    // 2. Fetch all wishlist items joined with products
     const rawCandidates = await db
       .select({
         wishlistId: schema.wishlist.id,
@@ -63,21 +53,16 @@ export async function GET(request: Request) {
     const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
     const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 
-    // 3. Filter eligible candidates
     const eligibleRows = rawCandidates.filter((row: any) => {
       if (forceRun) return true;
-
-      // Max 2 reminder emails per wishlisted item
       if (row.reminderCount >= 2) return false;
 
       const itemAgeMs = now - (row.createdAt ? new Date(row.createdAt).getTime() : now);
 
-      // First reminder: item must be at least 24 hours old
       if (row.reminderCount === 0) {
         return itemAgeMs >= TWENTY_FOUR_HOURS_MS;
       }
 
-      // Second reminder: at least 48 hours must have passed since the first reminder
       if (row.reminderCount === 1 && row.lastReminderSentAt) {
         const timeSinceLastReminderMs = now - new Date(row.lastReminderSentAt).getTime();
         return timeSinceLastReminderMs >= FORTY_EIGHT_HOURS_MS;
@@ -95,7 +80,38 @@ export async function GET(request: Request) {
       });
     }
 
-    // 4. Group candidate items by userId
+    // Enrich products with true primary images from product_images & product_variants
+    const pIds = Array.from(new Set(eligibleRows.map((r: any) => r.product.id))) as string[];
+
+    const [allProductImages, allProductVariants] = pIds.length > 0
+      ? await Promise.all([
+          db
+            .select()
+            .from(schema.productImages)
+            .where(inArray(schema.productImages.product_id, pIds))
+            .orderBy(asc(schema.productImages.sort_order)),
+          db
+            .select()
+            .from(schema.productVariants)
+            .where(inArray(schema.productVariants.product_id, pIds))
+            .orderBy(asc(schema.productVariants.created_at)),
+        ])
+      : [[], []];
+
+    const imagesByProductId: Record<string, string[]> = {};
+    for (const img of allProductImages) {
+      if (img.sort_order !== 99 && img.image_url) {
+        if (!imagesByProductId[img.product_id]) imagesByProductId[img.product_id] = [];
+        imagesByProductId[img.product_id].push(img.image_url);
+      }
+    }
+
+    const variantsByProductId: Record<string, any[]> = {};
+    for (const v of allProductVariants) {
+      if (!variantsByProductId[v.product_id]) variantsByProductId[v.product_id] = [];
+      variantsByProductId[v.product_id].push(v);
+    }
+
     const userItemMap = new Map<
       string,
       Array<{ wishlistId: string; product: typeof schema.products.$inferSelect }>
@@ -111,7 +127,6 @@ export async function GET(request: Request) {
     const updateWishlistIds: string[] = [];
     const executionDetails: Array<{ userId: string; email: string; itemCount: number }> = [];
 
-    // Import Clerk client lazily to resolve user emails
     const { clerkClient } = await import('@clerk/nextjs/server');
 
     for (const [userId, userCandidates] of Array.from(userItemMap.entries())) {
@@ -119,7 +134,6 @@ export async function GET(request: Request) {
         let userEmail: string | null = null;
         let userName = 'Valued Customer';
 
-        // Check local DB user first
         const [localUser] = await db
           .select()
           .from(schema.users)
@@ -130,7 +144,6 @@ export async function GET(request: Request) {
           userEmail = localUser.email;
           userName = localUser.name || 'Valued Customer';
         } else {
-          // Fallback to Clerk API lookup
           try {
             const client = await clerkClient();
             const clerkUser = await client.users.getUser(userId);
@@ -146,18 +159,26 @@ export async function GET(request: Request) {
           }
         }
 
-        if (!userEmail) {
-          console.warn(`[Cron Wishlist] Skipping user ${userId} — no email address found.`);
-          continue;
-        }
+        if (!userEmail) continue;
 
-        // Format consolidated email products
         const emailItems: WishlistEmailItem[] = userCandidates.map(({ product: prod }) => {
           const totalStock = prod.sizes.reduce(
             (acc, s) => acc + (prod.stock_quantity[s] || 0),
             0
           );
-          const firstImage = prod.images[0] || 'https://drftnclothing.in/og-default.jpg';
+
+          const prodImages = imagesByProductId[prod.id];
+          const variantImages = variantsByProductId[prod.id]?.[0]?.images;
+          let firstImage =
+            (prodImages && prodImages.length > 0 ? prodImages[0] : null) ||
+            (variantImages && variantImages.length > 0 ? variantImages[0] : null) ||
+            (prod.images && prod.images.length > 0 ? prod.images[0] : null) ||
+            'https://www.drftnclothing.in/og-default.jpg';
+
+          if (!firstImage.startsWith('http://') && !firstImage.startsWith('https://')) {
+            firstImage = `https://www.drftnclothing.in${firstImage.startsWith('/') ? '' : '/'}${firstImage}`;
+          }
+
           return {
             id: prod.id,
             name: prod.name,
@@ -170,7 +191,6 @@ export async function GET(request: Request) {
           };
         });
 
-        // 5. Dispatch single consolidated email to user
         await sendWishlistReminderEmail({
           customerEmail: userEmail,
           customerName: userName,
@@ -180,7 +200,6 @@ export async function GET(request: Request) {
         emailsSent++;
         executionDetails.push({ userId, email: userEmail, itemCount: emailItems.length });
 
-        // Collect wishlist IDs to bump reminder_count & timestamp
         for (const item of userCandidates) {
           updateWishlistIds.push(item.wishlistId);
         }
@@ -189,7 +208,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // 6. Update last_reminder_sent_at and bump reminder_count in Neon DB
     if (updateWishlistIds.length > 0) {
       await db
         .update(schema.wishlist)
@@ -197,7 +215,7 @@ export async function GET(request: Request) {
           last_reminder_sent_at: new Date(),
           reminder_count: sql`${schema.wishlist.reminder_count} + 1`,
         })
-        .where(inArray(schema.wishlist.id, updateWishlistIds));
+        .where(inArray(schema.wishlist.id, updateWishlistIds as string[]));
     }
 
     return NextResponse.json({
