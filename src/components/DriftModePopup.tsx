@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { useDriftMode } from '@/context/DriftModeContext';
 import { useAuthSession } from '@/context/AuthContext';
 import { X } from 'lucide-react';
@@ -8,6 +9,7 @@ import { X } from 'lucide-react';
 const DISMISS_TTL_MS = 12 * 60 * 60 * 1000; // 12 Hours
 
 export const DriftModePopup: React.FC = () => {
+  const pathname = usePathname();
   const { isActive, discountPercent, userCode, codeUsed, fetchOrCreateUserCode } = useDriftMode();
   const { isSignedIn, openAuthModal } = useAuthSession();
 
@@ -64,6 +66,7 @@ export const DriftModePopup: React.FC = () => {
   }, [userCode]);
 
   useEffect(() => {
+    if (pathname?.startsWith('/admin')) return;
     if (!isActive || codeUsed) return;
 
     try {
@@ -81,7 +84,7 @@ export const DriftModePopup: React.FC = () => {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isActive, codeUsed]);
+  }, [isActive, codeUsed, pathname]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -103,7 +106,7 @@ export const DriftModePopup: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, handleDismiss]);
 
-  if (!isOpen || !isActive || codeUsed) return null;
+  if (pathname?.startsWith('/admin') || !isOpen || !isActive || codeUsed) return null;
 
   return (
     <div
