@@ -636,8 +636,8 @@ function ShopContent() {
                 {MAIN_CATEGORIES.map((cat) => {
                   const isActive = selectedCategory === cat.slug;
                   const dbCat = categoriesList.find((c) => c.slug === cat.slug);
-                  // Priority: hardcoded override > DB image_url > auto-selected thumbnail > CATEGORY_VISUALS fallback
-                  const visualImg = CATEGORY_IMAGE_OVERRIDES[cat.slug] || dbCat?.image_url || categoryThumbnails[cat.slug] || CATEGORY_VISUALS[cat.slug]?.image || '';
+                  // Priority: hardcoded override > CATEGORY_VISUALS Cloudinary image > auto-selected thumbnail > DB image_url
+                  const visualImg = CATEGORY_IMAGE_OVERRIDES[cat.slug] || CATEGORY_VISUALS[cat.slug]?.image || categoryThumbnails[cat.slug] || dbCat?.image_url || '';
                   const visualLabel = dbCat?.name || cat.label;
                   return (
                     <div key={cat.slug} className="group flex flex-col items-center shrink-0 snap-start">
