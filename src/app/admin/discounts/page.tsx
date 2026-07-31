@@ -106,7 +106,7 @@ export default function AdminDiscounts() {
   };
 
   const filteredDiscounts = discounts.filter(d => 
-    !d.code.startsWith('DRIFT-') && d.code.toLowerCase().includes(searchTerm.toLowerCase())
+    !d.code.startsWith('DRIFT') && d.code !== 'DRFTNMODEON20' && d.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (

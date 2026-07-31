@@ -8,17 +8,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    // 1. Zod input validation
     const validationResult = discountValidateSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json({ error: 'Invalid validation payload' }, { status: 400 });
     }
 
-    const { code, subtotal, email, phone } = validationResult.data; // subtotal is in paise
+    const { code, subtotal, email, phone } = validationResult.data;
     const cleanCode = code.toUpperCase().trim();
 
-    // 2. Check if Drift Mode coupon
-    if (cleanCode.startsWith('DRIFT-')) {
+    // Check if Drift Mode coupon (DRFTNMODEON20, DRIFTMODE20, DRIFT-*)
+    const isDriftCode = cleanCode === 'DRFTNMODEON20' || cleanCode === 'DRIFTMODE20' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT');
+
+    if (isDriftCode) {
       const [settings] = await db
         .select()
         .from(schema.driftModeSettings)
@@ -29,30 +30,42 @@ export async function POST(request: Request) {
         return NextResponse.json({ valid: false, message: 'Drift Mode is currently inactive.' });
       }
 
-      const [driftCoupon] = await db
-        .select()
-        .from(schema.driftModeCoupons)
-        .where(eq(schema.driftModeCoupons.code, cleanCode))
-        .limit(1);
+      // Check if email/phone already redeemed a first-order discount
+      if (email || phone) {
+        const conditions = [];
+        if (email) conditions.push(eq(schema.orders.customer_email, email.toLowerCase().trim()));
+        if (phone) conditions.push(eq(schema.orders.customer_phone, phone.trim()));
 
-      if (!driftCoupon) {
-        return NextResponse.json({ valid: false, message: 'Invalid Drift Mode coupon code.' });
-      }
+        if (conditions.length > 0) {
+          const [existingOrder] = await db
+            .select({ id: schema.orders.id })
+            .from(schema.orders)
+            .where(
+              and(
+                or(...conditions),
+                ne(schema.orders.order_status, 'cancelled')
+              )
+            )
+            .limit(1);
 
-      if (driftCoupon.used) {
-        return NextResponse.json({ valid: false, message: 'This Drift Mode coupon has already been used.' });
+          if (existingOrder) {
+            return NextResponse.json({
+              valid: false,
+              message: 'This first-order Drift Mode discount has already been used on a previous order.',
+            });
+          }
+        }
       }
 
       return NextResponse.json({
         valid: true,
         discount_type: 'percent',
-        discount_value: driftCoupon.discount_percent,
+        discount_value: settings.discount_percent || 20,
         max_discount_amount: null,
-        message: `DRIFT MODE — ${driftCoupon.discount_percent}% OFF APPLIED`,
+        message: `DRIFT MODE — ${settings.discount_percent || 20}% OFF APPLIED`,
       });
     }
 
-    // 3. Fetch standard discount from Neon DB
     const [discount] = await db
       .select()
       .from(schema.discountCodes)
@@ -69,7 +82,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // 3. Expiration check
     if (discount.expires_at && new Date(discount.expires_at) < new Date()) {
       return NextResponse.json({
         valid: false,
@@ -77,7 +89,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // 4. Usage limit check
     if (discount.usage_limit !== null && discount.used_count >= discount.usage_limit) {
       return NextResponse.json({
         valid: false,
@@ -85,7 +96,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // 5. First-order discount check
     const [signupSetting] = await db
       .select()
       .from(schema.settings)
@@ -121,7 +131,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. Min order check (both subtotal and min_order_value are in paise)
     const minOrderVal = Number(discount.min_order_value || 0);
     if (subtotal < minOrderVal) {
       return NextResponse.json({
@@ -130,7 +139,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // 6. Return metadata (no calculated amount, calculated on order creation)
     return NextResponse.json({
       valid: true,
       discount_type: discount.discount_type,

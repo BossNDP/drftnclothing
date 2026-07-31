@@ -78,11 +78,14 @@ export async function confirmAndWriteOrder(checkout: any, razorpayPaymentId: str
 
     // ── Step 2: Increment discount coupon usage count / mark drift coupon used ──
     if (checkout.discount_code) {
-      if (checkout.discount_code.startsWith('DRIFT-')) {
-        await tx
-          .update(schema.driftModeCoupons)
-          .set({ used: true, used_at: new Date() })
-          .where(eq(schema.driftModeCoupons.code, checkout.discount_code));
+      const isDriftCode = checkout.discount_code === 'DRFTNMODEON20' || checkout.discount_code.startsWith('DRIFT');
+      if (isDriftCode) {
+        if (checkout.user_id) {
+          await tx
+            .update(schema.driftModeCoupons)
+            .set({ used: true, used_at: new Date() })
+            .where(eq(schema.driftModeCoupons.user_id, checkout.user_id));
+        }
       } else {
         await tx
           .update(schema.discountCodes)

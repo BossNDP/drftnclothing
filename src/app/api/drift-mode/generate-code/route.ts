@@ -32,14 +32,7 @@ async function ensureTables() {
   } catch {}
 }
 
-function generateRandomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let rand = '';
-  for (let i = 0; i < 6; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `DRIFT-${rand}`;
-}
+const STATIC_DRIFT_CODE = 'DRFTNMODEON20';
 
 async function getUserId(): Promise<string | null> {
   try {
@@ -64,13 +57,12 @@ async function getUserId(): Promise<string | null> {
 export async function POST() {
   try {
     await ensureTables();
-    // 1. Resolve user ID
+
     const userId = await getUserId();
     if (!userId) {
       return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
     }
 
-    // 2. Check if Drift Mode is active
     let [settings] = await db
       .select()
       .from(driftModeSettings)
@@ -81,7 +73,7 @@ export async function POST() {
       return NextResponse.json({ error: 'inactive' }, { status: 400 });
     }
 
-    // 3. Check if coupon already exists for user
+    // Check if coupon entry exists for user
     const [existingCoupon] = await db
       .select()
       .from(driftModeCoupons)
@@ -93,49 +85,34 @@ export async function POST() {
         return NextResponse.json({ error: 'already_used' }, { status: 400 });
       }
       return NextResponse.json({
-        code: existingCoupon.code,
-        discount_percent: existingCoupon.discount_percent,
+        code: STATIC_DRIFT_CODE,
+        discount_percent: settings.discount_percent,
         used: false,
       });
-    }
-
-    // 4. Generate new DRIFT-XXXXXX code
-    let newCode = generateRandomCode();
-    let isUnique = false;
-    let attempts = 0;
-
-    while (!isUnique && attempts < 5) {
-      attempts++;
-      const [dup] = await db
-        .select()
-        .from(driftModeCoupons)
-        .where(eq(driftModeCoupons.code, newCode))
-        .limit(1);
-      if (!dup) {
-        isUnique = true;
-      } else {
-        newCode = generateRandomCode();
-      }
     }
 
     const [inserted] = await db
       .insert(driftModeCoupons)
       .values({
         user_id: userId,
-        code: newCode,
+        code: STATIC_DRIFT_CODE,
         discount_percent: settings.discount_percent,
         used: false,
       })
+      .onConflictDoUpdate({
+        target: driftModeCoupons.user_id,
+        set: { code: STATIC_DRIFT_CODE, discount_percent: settings.discount_percent },
+      })
       .returning();
 
-    // Also sync to main discountCodes table so it appears in Admin Discounts Section
+    // Sync to main discountCodes table for visibility
     try {
       await db.insert(discountCodes).values({
-        code: newCode,
+        code: STATIC_DRIFT_CODE,
         discount_type: 'percent',
         discount_value: settings.discount_percent,
         min_order_value: 0,
-        usage_limit: 1,
+        usage_limit: null,
         used_count: 0,
         is_active: true,
       }).onConflictDoNothing();
@@ -144,8 +121,8 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      code: inserted.code,
-      discount_percent: inserted.discount_percent,
+      code: STATIC_DRIFT_CODE,
+      discount_percent: inserted ? inserted.discount_percent : settings.discount_percent,
       used: false,
     });
   } catch (error: any) {

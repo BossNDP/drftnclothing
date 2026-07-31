@@ -440,22 +440,17 @@ export async function POST(request: Request) {
     let discountAmount = 0;
     let validatedCode: string | undefined = undefined;
 
-    if (cleanCode && cleanCode.startsWith('DRIFT-')) {
-      const [driftCoupon] = await db
+    const isDriftOrderCode = cleanCode && (cleanCode === 'DRFTNMODEON20' || cleanCode === 'DRIFTMODE20' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
+
+    if (isDriftOrderCode) {
+      const [settings] = await db
         .select()
-        .from(schema.driftModeCoupons)
-        .where(eq(schema.driftModeCoupons.code, cleanCode))
+        .from(schema.driftModeSettings)
+        .where(eq(schema.driftModeSettings.id, 1))
         .limit(1);
 
-      if (!driftCoupon) {
-        return NextResponse.json({ error: 'Invalid Drift Mode coupon code' }, { status: 400 });
-      }
-
-      if (driftCoupon.used) {
-        return NextResponse.json({ error: 'This Drift Mode coupon has already been used' }, { status: 400 });
-      }
-
-      discountAmount = Math.round(calculatedSubtotal * (driftCoupon.discount_percent / 100));
+      const dPercent = settings?.discount_percent || 20;
+      discountAmount = Math.round(calculatedSubtotal * (dPercent / 100));
       discountAmount = Math.min(discountAmount, calculatedSubtotal);
       validatedCode = cleanCode;
     } else if (discountCode) {
