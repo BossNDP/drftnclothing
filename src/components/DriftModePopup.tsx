@@ -1,15 +1,15 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useAuth, SignInButton } from '@clerk/nextjs';
 import { gsap } from 'gsap';
 import { useDriftMode } from '@/context/DriftModeContext';
+import { useAuthSession } from '@/context/AuthContext';
 
 const DISMISS_TTL_MS = 12 * 60 * 60 * 1000; // 12 Hours
 
 export const DriftModePopup: React.FC = () => {
   const { isActive, discountPercent, userCode, codeUsed, fetchOrCreateUserCode } = useDriftMode();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, openAuthModal } = useAuthSession();
 
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -70,6 +70,13 @@ export const DriftModePopup: React.FC = () => {
     }, 600);
   }, [userCode, closePopup]);
 
+  const handleSignInClick = useCallback(() => {
+    closePopup();
+    setTimeout(() => {
+      openAuthModal('phone');
+    }, 200);
+  }, [closePopup, openAuthModal]);
+
   const copyCodeOnly = useCallback(() => {
     if (!userCode) return;
     navigator.clipboard.writeText(userCode).then(() => {
@@ -81,7 +88,6 @@ export const DriftModePopup: React.FC = () => {
   useEffect(() => {
     if (!isActive || codeUsed) return;
 
-    // Check 12-hour dismiss state
     try {
       const dismissedAt = localStorage.getItem('drftn_drift_popup_dismissed');
       if (dismissedAt) {
@@ -99,7 +105,6 @@ export const DriftModePopup: React.FC = () => {
     return () => clearTimeout(timer);
   }, [isActive, codeUsed]);
 
-  // Entrance animation: overlay 0.35s fade, modal 0.5s fade + translateY(12px -> 0)
   useEffect(() => {
     if (!isOpen) return;
 
@@ -155,7 +160,7 @@ export const DriftModePopup: React.FC = () => {
           ✕
         </button>
 
-        {/* Content Body with Tight Vertical Rhythm */}
+        {/* Content Body */}
         <div className="relative z-10 flex flex-col items-start text-left">
           <span className="text-[10px] font-mono font-bold tracking-[0.25em] text-zinc-400 uppercase block mb-1.5">
             NEW CUSTOMER OFFER
@@ -190,25 +195,24 @@ export const DriftModePopup: React.FC = () => {
             </div>
           ) : (
             <div className="w-full mb-3">
-              <SignInButton mode="modal">
-                <button className="w-full bg-white hover:bg-zinc-200 text-black py-3 px-5 text-xs font-mono font-extrabold tracking-[0.18em] uppercase transition-colors rounded-xl shadow-md flex items-center justify-center gap-2">
-                  <span>SIGN IN TO CLAIM {discountPercent}% OFF</span>
-                  <span className="text-sm">→</span>
-                </button>
-              </SignInButton>
+              <button
+                onClick={handleSignInClick}
+                className="w-full bg-white hover:bg-zinc-200 text-black py-3 px-5 text-xs font-mono font-extrabold tracking-[0.18em] uppercase transition-colors rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>SIGN IN TO CLAIM {discountPercent}% OFF</span>
+                <span className="text-sm">→</span>
+              </button>
             </div>
           )}
 
-          {/* Single Primary Action CTA Button */}
+          {/* Single Primary Action CTA Button for Signed In */}
           {isSignedIn && (
             <button
               onClick={handleCopyAndShop}
-              className="w-full bg-white hover:bg-zinc-200 text-black py-3.5 px-6 text-xs font-mono font-extrabold tracking-[0.2em] uppercase transition-colors rounded-xl shadow-lg flex items-center justify-center gap-2"
+              className="w-full bg-white hover:bg-zinc-200 text-black py-3.5 px-6 text-xs font-mono font-extrabold tracking-[0.2em] uppercase transition-colors rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer"
             >
               {copied ? (
-                <>
-                  <span>✓ COPIED! REDIRECTING...</span>
-                </>
+                <span>✓ COPIED! REDIRECTING...</span>
               ) : (
                 <>
                   <span>COPY CODE & SHOP NOW</span>
