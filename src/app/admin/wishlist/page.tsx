@@ -313,7 +313,7 @@ export default function AdminWishlistPage() {
           <div className="text-2xl font-mono font-extrabold text-zinc-900 mt-2">
             {loadingStats ? <Loader2 className="w-5 h-5 animate-spin text-zinc-400" /> : `${overview?.conversionRatePct}%`}
           </div>
-          <div className="text-[10px] font-mono text-zinc-400 mt-1">Saves $\rightarrow$ Orders</div>
+          <div className="text-[10px] font-mono text-zinc-400 mt-1">Saves → Orders</div>
         </div>
 
         {/* Emails Sent Total */}
@@ -323,7 +323,7 @@ export default function AdminWishlistPage() {
             <Send className="w-4 h-4 text-purple-500" />
           </div>
           <div className="text-2xl font-mono font-extrabold text-zinc-900 mt-2">
-            {loadingStats ? <Loader2 className="w-5 h-5 animate-spin text-zinc-400" /> : overview?.totalEmailsSent.toLocaleString()}
+            {loadingStats ? <Loader2 className="w-5 h-5 animate-spin text-zinc-400" /> : (overview?.totalEmailsSent ?? 0).toLocaleString()}
           </div>
           <div className="text-[10px] font-mono text-emerald-600 mt-1">Auto Vercel Cron</div>
         </div>
@@ -338,7 +338,7 @@ export default function AdminWishlistPage() {
             {loadingStats ? (
               <Loader2 className="w-5 h-5 animate-spin text-zinc-400" />
             ) : (
-              `₹${Math.round((overview?.wishlistAttributedRevenuePaise || 24800000) / 100).toLocaleString('en-IN')}`
+              `₹${Math.round((overview?.wishlistAttributedRevenuePaise || 0) / 100).toLocaleString('en-IN')}`
             )}
           </div>
           <div className="text-[10px] font-mono text-zinc-400 mt-1">Attributed sales</div>
@@ -362,7 +362,7 @@ export default function AdminWishlistPage() {
               <Clock className="w-3.5 h-3.5 text-indigo-400" />
             </div>
             <div className="text-xl font-mono font-extrabold text-white mt-1">
-              🔥 {intelligence?.idleRemindersCount || 42} <span className="text-xs font-normal text-zinc-400">Customers</span>
+              🔥 {intelligence?.idleRemindersCount ?? 0} <span className="text-xs font-normal text-zinc-400">Customers</span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
               Auto 24h reminder queued for next Vercel Cron run.
@@ -376,7 +376,7 @@ export default function AdminWishlistPage() {
               <Flame className="w-3.5 h-3.5 text-amber-400" />
             </div>
             <div className="text-xl font-mono font-extrabold text-white mt-1">
-              ⚠ {intelligence?.lowStockCount || 18} <span className="text-xs font-normal text-zinc-400">Customers</span>
+              ⚠ {intelligence?.lowStockCount ?? 0} <span className="text-xs font-normal text-zinc-400">Customers</span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
               Stock urgency trigger active for low stock items.
@@ -390,7 +390,7 @@ export default function AdminWishlistPage() {
               <Zap className="w-3.5 h-3.5 text-emerald-400" />
             </div>
             <div className="text-xl font-mono font-extrabold text-white mt-1">
-              💰 {intelligence?.priceDropCount || 27} <span className="text-xs font-normal text-zinc-400">Customers</span>
+              💰 {intelligence?.priceDropCount ?? 0} <span className="text-xs font-normal text-zinc-400">Customers</span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
               Price drop notifications triggered automatically.
@@ -404,7 +404,7 @@ export default function AdminWishlistPage() {
               <Award className="w-3.5 h-3.5 text-pink-400" />
             </div>
             <div className="text-xl font-mono font-extrabold text-white mt-1">
-              ⭐ {intelligence?.vipCount || 12} <span className="text-xs font-normal text-zinc-400">VIPs</span>
+              ⭐ {intelligence?.vipCount ?? 0} <span className="text-xs font-normal text-zinc-400">VIPs</span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
               High-value repeat customers with active wishlists.
@@ -418,7 +418,7 @@ export default function AdminWishlistPage() {
               <TrendingUp className="w-3.5 h-3.5 text-purple-400" />
             </div>
             <div className="text-xl font-mono font-extrabold text-white mt-1">
-              📈 {intelligence?.highWishlistLowConversionCount || 31} <span className="text-xs font-normal text-zinc-400">Products</span>
+              📈 {intelligence?.highWishlistLowConversionCount ?? 0} <span className="text-xs font-normal text-zinc-400">Products</span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-1 leading-tight">
               High wishlist demand, evaluate price or promo.
