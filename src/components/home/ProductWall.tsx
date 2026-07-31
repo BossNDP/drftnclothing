@@ -110,8 +110,9 @@ function WallCard({ product, index }: WallCardProps) {
         {/* Low Stock Scarcity Pill (ONLY if stock < 5) */}
         {showLowStock && (
           <div className="absolute top-2 left-2 z-10 pointer-events-none">
-            <span className="bg-zinc-800/90 text-zinc-300 border border-zinc-700/60 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-mono font-medium tracking-wide">
-              Only {totalStock} left
+            <span className="inline-flex items-center gap-1 bg-black/95 text-rose-300 border border-rose-500/80 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-mono font-black tracking-wider uppercase whitespace-nowrap shadow-xl">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+              <span>{totalStock} LEFT</span>
             </span>
           </div>
         )}

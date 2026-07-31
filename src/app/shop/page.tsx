@@ -163,9 +163,10 @@ function ShopProductCard({
                   if (totalStock > 0 && totalStock <= 8) {
                     return (
                       <div className="p-0.5 rounded-full">
-                        <span className="inline-flex items-center gap-1.5 bg-black/95 text-white border border-rose-500/80 backdrop-blur-md px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-mono font-black tracking-[0.16em] uppercase shadow-2xl">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                          LOW STOCK · {totalStock} LEFT
+                        <span className="inline-flex items-center gap-1 bg-black/95 text-rose-300 border border-rose-500/80 backdrop-blur-md px-2 py-0.5 rounded-full text-[8px] sm:text-[9.5px] font-mono font-black tracking-wider uppercase shadow-2xl whitespace-nowrap">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                          <span className="sm:hidden">{totalStock} LEFT</span>
+                          <span className="hidden sm:inline">LOW STOCK · {totalStock} LEFT</span>
                         </span>
                       </div>
                     );
