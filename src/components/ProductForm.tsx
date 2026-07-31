@@ -1043,8 +1043,19 @@ export default function ProductForm({ initialData, mode }: ProductFormProps) {
         }
       } else {
         if (!initialData?.id) throw new Error('Missing product ID for updates');
-        await db.updateProduct(initialData.id, payload as any);
-        addToast('Product updated successfully', 'success');
+        try {
+          await db.updateProduct(initialData.id, payload as any);
+          addToast('Product updated successfully', 'success');
+        } catch (updateErr: any) {
+          if (updateErr?.message?.includes('slug') || updateErr?.message?.includes('unique constraint') || updateErr?.message?.includes('already exists')) {
+            const fallbackSlug = `${slug.trim()}-${Math.floor(100 + Math.random() * 900)}`;
+            payload.slug = fallbackSlug;
+            await db.updateProduct(initialData.id, payload as any);
+            addToast(`Slug collision resolved. Updated product with slug "${fallbackSlug}"`, 'info');
+          } else {
+            throw updateErr;
+          }
+        }
       }
 
       // Reset background removal toggle after save

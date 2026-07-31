@@ -988,7 +988,7 @@ export const dbService = {
       const schema = await import('@/db/schema');
       const { eq, asc } = await import('drizzle-orm');
       
-      const { images, variants, base_price, ...productFields } = updates;
+      const { images, variants, base_price, id: _id, created_at: _cat, units_sold: _us, ...productFields } = updates;
 
       const cleanFields = sanitizeProductFields(productFields);
 
@@ -1006,11 +1006,34 @@ export const dbService = {
         if (!isNaN(pNum) && pNum > 0) updateData.price = Math.round(pNum);
       }
 
-      const [updated] = await db
-        .update(schema.products)
-        .set(updateData)
-        .where(eq(schema.products.id, id))
-        .returning();
+      let updated: any;
+      try {
+        const [res] = await db
+          .update(schema.products)
+          .set(updateData)
+          .where(eq(schema.products.id, id))
+          .returning();
+        updated = res;
+      } catch (updateErr: any) {
+        console.warn('[updateProduct] Primary update failed:', updateErr?.message || updateErr);
+        if (updateErr?.message?.includes('slug') || updateErr?.message?.includes('unique constraint') || updateErr?.code === '23505') {
+          console.warn(`[updateProduct] Slug collision for "${updateData.slug}". Retrying with original slug...`);
+          if (oldProduct?.slug) {
+            updateData.slug = oldProduct.slug;
+          } else {
+            updateData.slug = `${updateData.slug}-${Math.floor(100 + Math.random() * 900)}`;
+          }
+          const [res] = await db
+            .update(schema.products)
+            .set(updateData)
+            .where(eq(schema.products.id, id))
+            .returning();
+          updated = res;
+        } else {
+          console.error('[updateProduct] Unrecoverable DB update error:', updateErr);
+          throw updateErr;
+        }
+      }
 
       if (!updated) throw new Error('Product not found');
 
