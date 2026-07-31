@@ -309,7 +309,7 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
     return () => window.removeEventListener('message', handleMessage);
   }, [addToast]);
 
-  // ── Profile form submit (new user only) ──────────────────────────
+  // ── Profile form submit ──────────────────────────────────────────
   const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullName = `${profileFirstName.trim()} ${profileLastName.trim()}`.trim();
@@ -322,26 +322,50 @@ export function AuthSessionProvider({ children }: { children: React.ReactNode })
       return;
     }
 
+    const tokenToUse = tempToken || sessionStorage.getItem('pending_new_user_temp_token');
+
     setIsSubmittingProfile(true);
     try {
-      const res = await fetch('/api/auth/register-phone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: fullName,
-          email: profileEmail.trim() || undefined,
-          tempToken,
-          notificationsOptIn,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setUser(data.user);
-        addToast('Welcome to DRFTN! 🎉', 'success');
-        if (data.triggerPush) subscribeToWebPush(addToast);
-        closeAuthModal();
+      if (tokenToUse || !user) {
+        // Phone signup registration flow
+        const res = await fetch('/api/auth/register-phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: fullName,
+            email: profileEmail.trim() || undefined,
+            tempToken: tokenToUse,
+            notificationsOptIn,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          sessionStorage.removeItem('pending_new_user_temp_token');
+          setTempToken(null);
+          setUser(data.user);
+          addToast('Welcome to DRFTN! 🎉', 'success');
+          if (data.triggerPush) subscribeToWebPush(addToast);
+          closeAuthModal();
+        } else {
+          addToast(data.error || 'Failed to save profile. Please try again.', 'error');
+        }
       } else {
-        addToast(data.error || 'Failed to save profile. Please try again.', 'error');
+        // Existing user (e.g. Google sign-in) updating profile
+        const res = await fetch('/api/auth/update-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: fullName,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          setUser(data.user);
+          addToast('Profile updated! 🎉', 'success');
+          closeAuthModal();
+        } else {
+          addToast(data.error || 'Failed to update profile', 'error');
+        }
       }
     } catch (err) {
       console.error('Profile submit error:', err);

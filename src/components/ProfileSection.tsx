@@ -27,10 +27,11 @@ export default function ProfileSection({ initialName, phone, authProvider }: Pro
   const [isSaving, setIsSaving] = useState(false);
   const [isModified, setIsModified] = useState(false);
   const [isVerifyingPhone, setIsVerifyingPhone] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(!!phone); // Already verified if exists
+  const [phoneVerified, setPhoneVerified] = useState(!!phone && phone.trim().length > 0); // Already verified if exists
 
   // Gmail users can update phone; phone users cannot
-  const isGmailUser = authProvider === 'google';
+  const normalizedProvider = (authProvider || '').toLowerCase();
+  const isGmailUser = normalizedProvider === 'google';
   const canEditPhone = isGmailUser && !phoneVerified;
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {

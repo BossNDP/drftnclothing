@@ -118,7 +118,15 @@ export async function POST(request: Request) {
         path: '/',
       });
 
-      return NextResponse.json({ success: true, isNewUser: false, user: dbUser });
+      const formattedUser = {
+        ...dbUser,
+        authProvider: dbUser.auth_provider,
+        notificationsOptIn: dbUser.notifications_opt_in,
+        phoneVerified: dbUser.phone_verified,
+        emailVerified: dbUser.email_verified,
+      };
+
+      return NextResponse.json({ success: true, isNewUser: false, user: formattedUser });
     } else {
       // ── New user ── issue a short-lived temp token with the verified phone
       const tempToken = await signTempToken({ phone: verifiedPhone, isTemp: true });

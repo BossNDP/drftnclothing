@@ -1,12 +1,22 @@
 const secret = process.env.ADMIN_JWT_SECRET || 'drftn_default_jwt_secret_key_2026_fallback';
 
+function base64UrlEncode(str: string): string {
+  return Buffer.from(str, 'utf-8').toString('base64url');
+}
+
+function base64UrlDecode(str: string): string {
+  return Buffer.from(str, 'base64url').toString('utf-8');
+}
+
 async function buildToken(payload: object, expSeconds: number): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const headerStr = JSON.stringify({ alg: 'HS256', typ: 'JWT' });
+  const header = base64UrlEncode(headerStr);
+  
   const stringifiedPayload = JSON.stringify({
     ...payload,
     exp: Math.floor(Date.now() / 1000) + expSeconds,
   });
-  const encodedPayload = btoa(stringifiedPayload);
+  const encodedPayload = base64UrlEncode(stringifiedPayload);
   const data = `${header}.${encodedPayload}`;
 
   const encoder = new TextEncoder();
@@ -18,10 +28,7 @@ async function buildToken(payload: object, expSeconds: number): Promise<string> 
     ['sign']
   );
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(data));
-  const encodedSignature = btoa(String.fromCharCode(...Array.from(new Uint8Array(signature))))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+  const encodedSignature = Buffer.from(signature).toString('base64url');
 
   return `${data}.${encodedSignature}`;
 }
@@ -38,6 +45,7 @@ export async function signTempToken(payload: { phone: string; isTemp: true }): P
 
 export async function verifyToken(token: string): Promise<Record<string, unknown> | null> {
   try {
+    if (!token || typeof token !== 'string') return null;
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const [header, payload, signature] = parts;
@@ -52,18 +60,11 @@ export async function verifyToken(token: string): Promise<Record<string, unknown
       ['verify']
     );
 
-    let base64 = signature.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
-    const binStr = atob(base64);
-    const sigBytes = new Uint8Array(binStr.length);
-    for (let i = 0; i < binStr.length; i++) sigBytes[i] = binStr.charCodeAt(i);
-
+    const sigBytes = new Uint8Array(Buffer.from(signature, 'base64url'));
     const isValid = await crypto.subtle.verify('HMAC', key, sigBytes, encoder.encode(data));
     if (!isValid) return null;
 
-    let decBase64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    while (decBase64.length % 4) decBase64 += '=';
-    const decodedPayload = JSON.parse(atob(decBase64));
+    const decodedPayload = JSON.parse(base64UrlDecode(payload));
 
     if (decodedPayload.exp && decodedPayload.exp < Math.floor(Date.now() / 1000)) {
       return null; // Expired

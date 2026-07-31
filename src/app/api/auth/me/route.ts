@@ -8,6 +8,18 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 
 export const dynamic = 'force-dynamic';
 
+function formatUser(u: any) {
+  if (!u) return null;
+  return {
+    ...u,
+    authProvider: u.auth_provider || u.authProvider || 'phone',
+    auth_provider: u.auth_provider || u.authProvider || 'phone',
+    notificationsOptIn: u.notifications_opt_in ?? u.notificationsOptIn ?? true,
+    phoneVerified: u.phone_verified ?? u.phoneVerified ?? false,
+    emailVerified: u.email_verified ?? u.emailVerified ?? false,
+  };
+}
+
 export async function GET() {
   try {
     const cookieStore = cookies();
@@ -24,7 +36,7 @@ export async function GET() {
           .limit(1);
 
         if (dbUser) {
-          return NextResponse.json({ user: dbUser });
+          return NextResponse.json({ user: formatUser(dbUser) });
         }
       }
     }
@@ -50,7 +62,7 @@ export async function GET() {
           path: '/',
         });
 
-        return NextResponse.json({ user: dbUser });
+        return NextResponse.json({ user: formatUser(dbUser) });
       }
 
       // If user does not exist in DB yet, pull info from Clerk and create in DB
@@ -80,8 +92,8 @@ export async function GET() {
             .update(schema.users)
             .set({
               id: clerkAuth.userId,
-              authProvider: 'google',
-              emailVerified: true,
+              auth_provider: 'google',
+              email_verified: true,
               name: dbUserByEmail.name || name,
             })
             .where(eq(schema.users.id, dbUserByEmail.id))
@@ -94,11 +106,11 @@ export async function GET() {
             .values({
               id: clerkAuth.userId,
               email: email,
-              emailVerified: !!email,
+              email_verified: !!email,
               name: name,
-              authProvider: 'google',
-              notificationsOptIn: true,
-              termsAcceptedAt: new Date(),
+              auth_provider: 'google',
+              notifications_opt_in: true,
+              terms_accepted_at: new Date(),
             })
             .returning();
           syncedUser = created;
@@ -114,7 +126,7 @@ export async function GET() {
           path: '/',
         });
 
-        return NextResponse.json({ user: syncedUser });
+        return NextResponse.json({ user: formatUser(syncedUser) });
       } catch (clerkErr) {
         console.error('Clerk user sync failed:', clerkErr);
       }

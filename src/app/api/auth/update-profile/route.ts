@@ -56,6 +56,22 @@ export async function POST(request: Request) {
     if (phone && typeof phone === 'string') {
       const cleanPhone = phone.replace(/\D/g, '');
       if (/^[6-9]\d{9}$/.test(cleanPhone)) {
+        const fullPhone = `+91${cleanPhone}`;
+
+        // Check if phone number is already linked to another account
+        const [existingPhoneUser] = await db
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.phone, fullPhone))
+          .limit(1);
+
+        if (existingPhoneUser && existingPhoneUser.id !== userId) {
+          return NextResponse.json(
+            { error: 'This phone number is already linked to another account.' },
+            { status: 400 }
+          );
+        }
+
         // Check current user — only allow if they don't already have a verified phone
         const [currentUser] = await db
           .select()
@@ -63,9 +79,9 @@ export async function POST(request: Request) {
           .where(eq(schema.users.id, userId))
           .limit(1);
         
-        if (currentUser && (!currentUser.phone || !currentUser.phoneVerified)) {
-          updateData.phone = `+91${cleanPhone}`;
-          updateData.phoneVerified = true;
+        if (currentUser && (!currentUser.phone || !currentUser.phone_verified)) {
+          updateData.phone = fullPhone;
+          updateData.phone_verified = true;
         }
       }
     }
@@ -81,7 +97,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, user: updatedUser });
+    const formattedUser = {
+      ...updatedUser,
+      authProvider: updatedUser.auth_provider,
+      notificationsOptIn: updatedUser.notifications_opt_in,
+      phoneVerified: updatedUser.phone_verified,
+      emailVerified: updatedUser.email_verified,
+    };
+
+    return NextResponse.json({ success: true, user: formattedUser });
   } catch (error) {
     console.error('Update profile API error:', error);
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
