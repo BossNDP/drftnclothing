@@ -3,14 +3,13 @@
  *   - /shop page (CategoryRail, category hero banners)
  *   - /app/_HomePageClient.tsx HomeCategorySection
  *
- * Add or edit entries to pin images to specific category circles.
- * CATEGORY_IMAGE_OVERRIDES take priority over DB image_url and auto-selected thumbnails.
+ * Uses authentic DRFTN Cloudinary product images exclusively.
  */
 export const CATEGORY_VISUALS: Record<string, { label: string; image: string }> = {
   all: {
     label: 'All Drops',
     image:
-      'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232712/drftn-products/dgv06ev4uv746sjfdwaq.jpg',
   },
   't-shirts': {
     label: 'Tees',
@@ -20,43 +19,54 @@ export const CATEGORY_VISUALS: Record<string, { label: string; image: string }> 
   shirts: {
     label: 'Shirts',
     image:
-      'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1784830975/drftn-products/f42vst7ccgg3deqwsjcv.jpg',
   },
   denims: {
     label: 'Denims',
     image:
-      'https://images.unsplash.com/photo-1542272604-787c3835535d?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785252749/drftn-products/e4flew2q0o5cdkc7qmeb.jpg',
   },
   'formal-pants': {
     label: 'Trousers',
     image:
-      'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785256428/drftn-products/xjmjjgzzvl0vf6e0difo.jpg',
   },
   sweatshirts: {
     label: 'Sweats',
     image:
-      'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232919/drftn-products/tuquugai46apllc42seg.jpg',
+  },
+  sweatshirt: {
+    label: 'Sweatshirt',
+    image:
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232919/drftn-products/tuquugai46apllc42seg.jpg',
   },
   hoodies: {
     label: 'Hoodies',
     image:
-      'https://images.unsplash.com/photo-1556821840-47b2c0d5c829?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232712/drftn-products/dgv06ev4uv746sjfdwaq.jpg',
   },
   jackets: {
     label: 'Jackets',
     image:
-      'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=400&h=400&fit=crop&q=80',
+      'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785157166/drftn-products/nqukkelm6kwifrrt0umw.jpg',
   },
 };
 
-/** Override DB image or auto-thumbnail for any category slug */
+/** Explicit DRFTN Cloudinary image overrides for category circles */
 export const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
-  't-shirts':
-    'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785153652/drftn-products/jphnwicpbhl6wvrnxkfw.jpg',
-  // Example: 'hoodies': 'https://res.cloudinary.com/...',
+  all: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232712/drftn-products/dgv06ev4uv746sjfdwaq.jpg',
+  't-shirts': 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785153652/drftn-products/jphnwicpbhl6wvrnxkfw.jpg',
+  shirts: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1784830975/drftn-products/f42vst7ccgg3deqwsjcv.jpg',
+  denims: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785252749/drftn-products/e4flew2q0o5cdkc7qmeb.jpg',
+  'formal-pants': 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785256428/drftn-products/xjmjjgzzvl0vf6e0difo.jpg',
+  sweatshirts: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232919/drftn-products/tuquugai46apllc42seg.jpg',
+  sweatshirt: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232919/drftn-products/tuquugai46apllc42seg.jpg',
+  hoodies: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785232712/drftn-products/dgv06ev4uv746sjfdwaq.jpg',
+  jackets: 'https://res.cloudinary.com/dtj01pdog/image/upload/f_auto,q_auto,e_improve,e_sharpen:60/v1785157166/drftn-products/nqukkelm6kwifrrt0umw.jpg',
 };
 
-/** Ordered category list for the CategoryRail — matches user spec */
+/** Ordered category list for the CategoryRail */
 export const HOME_CATEGORIES = [
   { slug: 'all', label: 'All' },
   { slug: 't-shirts', label: 'T-Shirts' },
