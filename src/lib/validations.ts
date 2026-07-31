@@ -6,6 +6,24 @@ export const SizeEnum = z.enum(['XS', 'S', 'M', 'L', 'XL', 'XXL', '26', '28', '3
 // Product ID pattern (enforces valid UUID to prevent DB casting crashes)
 export const ProductIdSchema = z.string().uuid('Invalid product ID format');
 
+function isGibberishText(str: string): boolean {
+  const clean = str.trim().toLowerCase();
+  if (clean.length < 5) return true;
+  if (/^(.)\1+$/.test(clean)) return true;
+  const mashPatterns = [
+    'asdf', 'sdfg', 'dfgh', 'fghj', 'ghjk', 'hjkl',
+    'qwert', 'werty', 'ertyu', 'rtyui', 'tyuio', 'yuiop',
+    'zxcv', 'xcvb', 'cvbn', 'vbnm', '1234', '2345', '3456', '4567',
+    'test', 'aaaa', 'bbbb', 'cccc', 'xxxx', 'yyyy', 'zzzz'
+  ];
+  for (const pat of mashPatterns) {
+    if (clean.includes(pat) && clean.length < 12) return true;
+  }
+  const words = clean.split(/[\s,.-]+/).filter(w => w.length > 0);
+  if (words.length < 2) return true;
+  return false;
+}
+
 // POST /api/orders/create Schema
 export const createOrderSchema = z.object({
   items: z.array(z.object({
@@ -38,11 +56,11 @@ export const createOrderSchema = z.object({
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customerInfo', 'address'], message: 'Shipping address is required for home delivery' });
       return;
     }
-    if (!addr.line1 || addr.line1.trim() === '') {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customerInfo', 'address', 'line1'], message: 'Address line 1 is required' });
+    if (!addr.line1 || addr.line1.trim() === '' || isGibberishText(addr.line1)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customerInfo', 'address', 'line1'], message: 'Please enter a valid, complete delivery address (no random letters)' });
     }
-    if (!addr.city || addr.city.trim().length < 2) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customerInfo', 'address', 'city'], message: 'City is required' });
+    if (!addr.city || addr.city.trim().length < 2 || isGibberishText(addr.city + ' ' + addr.city)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customerInfo', 'address', 'city'], message: 'Please enter a valid city name' });
     }
     if (!addr.state || addr.state.trim().length < 2) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['customerInfo', 'address', 'state'], message: 'State is required' });

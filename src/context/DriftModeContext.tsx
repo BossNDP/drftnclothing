@@ -14,7 +14,7 @@ interface DriftModeContextType {
 }
 
 const DriftModeContext = createContext<DriftModeContextType>({
-  isActive: false,
+  isActive: true,
   discountPercent: 20,
   userCode: null,
   codeUsed: false,
@@ -24,7 +24,7 @@ const DriftModeContext = createContext<DriftModeContextType>({
 });
 
 export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isActive, setIsActive] = useState<boolean>(false);
+  const [isActive, setIsActive] = useState<boolean>(true);
   const [discountPercent, setDiscountPercent] = useState<number>(20);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [codeUsed, setCodeUsed] = useState<boolean>(false);

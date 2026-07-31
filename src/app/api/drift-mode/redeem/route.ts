@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { driftModeCoupons } from '@/db/schema';
+import { driftModeCoupons, discountCodes } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -26,8 +26,19 @@ export async function POST(request: Request) {
       .where(eq(driftModeCoupons.code, cleanCode))
       .returning();
 
+    // Also update main discountCodes table
+    try {
+      await db.update(discountCodes)
+        .set({
+          used_count: 1,
+          is_active: false,
+          updated_at: new Date(),
+        })
+        .where(eq(discountCodes.code, cleanCode));
+    } catch {}
+
     if (!updated) {
-      return NextResponse.json({ success: false, error: 'coupon_not_found' }, { status: 44 });
+      return NextResponse.json({ success: false, error: 'coupon_not_found' }, { status: 404 });
     }
 
     return NextResponse.json({

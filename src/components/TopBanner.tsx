@@ -11,7 +11,6 @@ export const TopBanner: React.FC = () => {
   useEffect(() => {
     if (!isActive) return;
 
-    // IntersectionObserver to pause animation when banner is scrolled out of view
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -25,13 +24,8 @@ export const TopBanner: React.FC = () => {
       observer.observe(containerRef.current);
     }
 
-    // Page Visibility API to pause animation when tab is inactive
     const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setIsPaused(true);
-      } else {
-        setIsPaused(false);
-      }
+      setIsPaused(document.hidden);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -44,13 +38,13 @@ export const TopBanner: React.FC = () => {
 
   if (!isActive) return null;
 
-  const marqueeMessage = `DRIFT MODE: ON | ${discountPercent}% OFF YOUR FIRST ORDER | FREE SHIPPING | COD AVAILABLE | `;
+  const item = `DRIFT MODE ACTIVE • FLAT ${discountPercent}% OFF FIRST ORDER • FREE SHIPPING & COD ACROSS INDIA • `;
 
   return (
     <div
       ref={containerRef}
       aria-label="Drift Mode Announcement"
-      className="relative w-full bg-black border-b border-[#1a1a1a] text-white overflow-hidden select-none z-40 py-2"
+      className="relative w-full bg-black h-6 border-b border-zinc-900 text-white flex items-center overflow-hidden select-none z-40"
     >
       <style jsx>{`
         @keyframes driftMarquee {
@@ -65,7 +59,7 @@ export const TopBanner: React.FC = () => {
           display: inline-flex;
           white-space: nowrap;
           will-change: transform;
-          animation: driftMarquee 36s linear infinite;
+          animation: driftMarquee 90s linear infinite;
         }
         @media (prefers-reduced-motion: reduce) {
           .animate-drift-marquee {
@@ -76,13 +70,13 @@ export const TopBanner: React.FC = () => {
       `}</style>
 
       <div
-        className="animate-drift-marquee text-[11px] font-mono tracking-[0.2em] uppercase font-bold text-zinc-200"
+        className="animate-drift-marquee text-[10px] font-mono tracking-[0.25em] uppercase font-medium text-zinc-300"
         style={{
           animationPlayState: isPaused ? 'paused' : 'running',
         }}
       >
-        <span>{marqueeMessage.repeat(6)}</span>
-        <span>{marqueeMessage.repeat(6)}</span>
+        <span>{item.repeat(8)}</span>
+        <span>{item.repeat(8)}</span>
       </div>
     </div>
   );

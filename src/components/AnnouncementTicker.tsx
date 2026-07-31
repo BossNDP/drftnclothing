@@ -14,6 +14,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDriftMode } from '@/context/DriftModeContext';
+import TopBanner from './TopBanner';
 
 /* ─── Ticker messages ─────────────────────────────────────────────────── */
 const MESSAGES = [
@@ -45,10 +47,15 @@ const msgVariants = {
 
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function AnnouncementTicker() {
+  const { isActive } = useDriftMode();
   const [idx, setIdx] = useState(0);
   const [barKey, setBarKey] = useState(0);
   const [isRunning, setIsRunning] = useState(true);
   const containerRef = React.useRef<HTMLElement>(null);
+
+  if (isActive) {
+    return <TopBanner />;
+  }
 
   useEffect(() => {
     let t: NodeJS.Timeout | null = null;

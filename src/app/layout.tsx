@@ -221,9 +221,6 @@ export default function RootLayout({
           <SmoothScrollProvider>
             <AuthSessionProvider>
               <DriftModeProvider>
-                {/* Drift Mode Announcement Banner */}
-                <TopBanner />
-
                 {/* Global Navbar */}
                 <Navbar />
 

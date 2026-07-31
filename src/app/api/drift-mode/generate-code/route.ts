@@ -2,11 +2,35 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/db';
-import { driftModeSettings, driftModeCoupons } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { driftModeSettings, driftModeCoupons, discountCodes } from '@/db/schema';
+import { eq, sql } from 'drizzle-orm';
 import { verifyToken } from '@/lib/jwt';
 
 export const dynamic = 'force-dynamic';
+
+async function ensureTables() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS drift_mode_settings (
+        id SERIAL PRIMARY KEY,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        discount_percent INTEGER NOT NULL DEFAULT 20,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS drift_mode_coupons (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id TEXT NOT NULL UNIQUE,
+        code TEXT NOT NULL UNIQUE,
+        discount_percent INTEGER NOT NULL,
+        used BOOLEAN NOT NULL DEFAULT false,
+        used_at TIMESTAMPTZ,
+        order_id UUID,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+  } catch {}
+}
 
 function generateRandomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -39,6 +63,7 @@ async function getUserId(): Promise<string | null> {
 
 export async function POST() {
   try {
+    await ensureTables();
     // 1. Resolve user ID
     const userId = await getUserId();
     if (!userId) {
@@ -102,6 +127,21 @@ export async function POST() {
         used: false,
       })
       .returning();
+
+    // Also sync to main discountCodes table so it appears in Admin Discounts Section
+    try {
+      await db.insert(discountCodes).values({
+        code: newCode,
+        discount_type: 'percent',
+        discount_value: settings.discount_percent,
+        min_order_value: 0,
+        usage_limit: 1,
+        used_count: 0,
+        is_active: true,
+      }).onConflictDoNothing();
+    } catch (e) {
+      console.warn('[Sync to discountCodes warning]:', e);
+    }
 
     return NextResponse.json({
       code: inserted.code,

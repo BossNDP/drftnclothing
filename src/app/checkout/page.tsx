@@ -383,6 +383,24 @@ export default function CheckoutPage() {
     });
   };
 
+function isGibberishText(str: string): boolean {
+  const clean = str.trim().toLowerCase();
+  if (clean.length < 5) return true;
+  if (/^(.)\1+$/.test(clean)) return true;
+  const mashPatterns = [
+    'asdf', 'sdfg', 'dfgh', 'fghj', 'ghjk', 'hjkl',
+    'qwert', 'werty', 'ertyu', 'rtyui', 'tyuio', 'yuiop',
+    'zxcv', 'xcvb', 'cvbn', 'vbnm', '1234', '2345', '3456', '4567',
+    'test', 'aaaa', 'bbbb', 'cccc', 'xxxx', 'yyyy', 'zzzz'
+  ];
+  for (const pat of mashPatterns) {
+    if (clean.includes(pat) && clean.length < 12) return true;
+  }
+  const words = clean.split(/[\s,.-]+/).filter(w => w.length > 0);
+  if (words.length < 2) return true;
+  return false;
+}
+
   // Validates step 1 inputs
   const handleProceedToPayment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,8 +419,12 @@ export default function CheckoutPage() {
     }
     
     if (fulfillmentType === 'delivery') {
-      if (!formData.line1.trim()) return addToast('Shipping address line 1 is required', 'error');
-      if (!formData.city.trim()) return addToast('City is required', 'error');
+      if (!formData.line1.trim() || isGibberishText(formData.line1)) {
+        return addToast('Please enter a valid, complete delivery address (no random letters)', 'error');
+      }
+      if (!formData.city.trim() || isGibberishText(formData.city + ' ' + formData.city)) {
+        return addToast('Please enter a valid city name', 'error');
+      }
       if (!formData.state.trim()) return addToast('State is required', 'error');
       if (!/^\d{6}$/.test(formData.pincode.trim())) return addToast('Please enter a valid 6-digit Indian PIN code', 'error');
     }
@@ -815,34 +837,18 @@ export default function CheckoutPage() {
             <form onSubmit={handleProceedToPayment} className="space-y-8 animate-fade-in">
               {/* Contact Info */}
               <section className="space-y-4">
-                <h2 className="text-base font-bold text-brand-offwhite uppercase tracking-wider border-b border-zinc-900 pb-2">Contact Details</h2>
+                <h2 className="text-base font-bold text-brand-offwhite uppercase tracking-wider border-b border-zinc-900 pb-2 flex items-center justify-between">
+                  <span>1. Contact Details & Mobile Verification</span>
+                  {!verifiedPhone && (
+                    <span className="text-[10px] font-mono text-amber-400 tracking-wider font-normal">
+                      VERIFICATION REQUIRED
+                    </span>
+                  )}
+                </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Phone Verification at TOP */}
                   <div className="space-y-1.5 md:col-span-2">
-                    <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Full Name</label>
-                    <input
-                      type="text"
-                      name="name"
-                      required
-                      placeholder="e.g. Nagarjun D P"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Email Address</label>
-                    <input
-                      type="email"
-                      name="email"
-                      required
-                      placeholder="e.g. user@domain.com"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
-                    />
-                  </div>
-                   <div className="space-y-1.5">
-                    <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Phone Number (10-digit)</label>
+                    <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Mobile Phone Number (10-digit OTP Verification)</label>
                     {verifiedPhone ? (
                       <div className="relative flex">
                         <input
@@ -866,21 +872,21 @@ export default function CheckoutPage() {
                           placeholder="e.g. 7406164512"
                           value={formData.phone}
                           onChange={handleInputChange}
-                          className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
+                          className="w-full bg-zinc-900/50 border border-amber-500/40 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
                         />
                         <button
                           type="button"
                           onClick={startPhoneVerification}
                           disabled={isVerifyingPhone}
-                          className="absolute right-2 top-1.5 bg-white hover:bg-zinc-200 text-black text-[9px] font-bold uppercase tracking-widest px-3 py-2 cursor-pointer transition-colors"
+                          className="absolute right-2 top-1.5 bg-amber-400 hover:bg-amber-300 text-black text-[9px] font-bold uppercase tracking-widest px-3 py-2 cursor-pointer transition-colors rounded"
                         >
                           {isVerifyingPhone ? 'Verifying...' : 'Verify OTP'}
                         </button>
                       </div>
                     )}
                     {!verifiedPhone && (
-                      <span className="text-[9px] text-zinc-500 uppercase tracking-wider block">
-                        A verified mobile number is required to proceed.
+                      <span className="text-[9px] text-amber-400 uppercase tracking-wider block font-mono">
+                        ⚡ You must verify your mobile number before entering shipping details.
                       </span>
                     )}
                     {verifiedPhone && user?.authProvider === 'google' && (
@@ -892,6 +898,31 @@ export default function CheckoutPage() {
                         Use different number
                       </button>
                     )}
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Full Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      required
+                      placeholder="e.g. Nagarjun D P"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold block">Email Address</label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      placeholder="e.g. user@domain.com"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className="w-full bg-zinc-900/50 border border-zinc-800 text-brand-offwhite px-4 py-3 text-sm focus:outline-none focus:border-white focus:bg-zinc-900 transition-colors"
+                    />
                   </div>
                 </div>
               </section>
