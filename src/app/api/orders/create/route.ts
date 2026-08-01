@@ -421,9 +421,9 @@ export async function POST(request: Request) {
 
     // 4. Fetch dynamic store settings from database (ignored if pickup)
     let shippingCharge = 0;
-    let freeShippingThreshold = 99900; // default ₹999 in paise
-    let defaultShippingCharge = 9900;  // default ₹99 in paise
-    let codFee = 5000;                  // default ₹50 in paise
+    let freeShippingThreshold = 0; // Free Shipping Sale (₹0 threshold)
+    let defaultShippingCharge = 0; // Free Shipping Sale (₹0 charge)
+    let codFee = 0;                 // Free Shipping Sale (₹0 COD fee)
 
     if (!isPickup) {
       dbSettings.forEach((row: any) => {

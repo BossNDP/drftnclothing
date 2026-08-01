@@ -125,9 +125,9 @@ export default function CheckoutPage() {
   const [storeConfig, setStoreConfig] = useState({
     razorpayActive: false,
     razorpayKeyId: '',
-    freeShippingThreshold: 99900,
-    defaultShippingCharge: 9900,
-    codFee: 5000,
+    freeShippingThreshold: 0,
+    defaultShippingCharge: 0,
+    codFee: 0,
     whatsappNumber: '+917406164512',
     borzoCutoffStart: '11:00',
     borzoCutoffEnd: '16:00',
@@ -1355,7 +1355,14 @@ function isGibberishText(str: string): boolean {
               <div className="flex justify-between text-zinc-500">
                 <span>Shipping</span>
                 <span className="font-mono text-zinc-400">
-                  {shippingCharge === 0 ? 'FREE' : `₹${(shippingCharge / 100).toFixed(2)}`}
+                  {shippingCharge === 0 ? (
+                    <>
+                      <span className="line-through text-zinc-600 mr-2 text-xs">₹50.00</span>
+                      <span className="text-emerald-400 font-extrabold">FREE</span>
+                    </>
+                  ) : (
+                    `₹${(shippingCharge / 100).toFixed(2)}`
+                  )}
                 </span>
               </div>
               

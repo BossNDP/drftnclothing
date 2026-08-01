@@ -38,8 +38,8 @@ export default function CartPage() {
   }, []);
 
   const subtotal = getCartTotal();
-  const freeShippingThreshold = storeSettings?.free_shipping_threshold ?? 99900;
-  const defaultShippingCharge = storeSettings?.default_shipping_charge ?? 9900;
+  const freeShippingThreshold = storeSettings?.free_shipping_threshold ?? 0;
+  const defaultShippingCharge = storeSettings?.default_shipping_charge ?? 0;
 
   // Calculate shipping
   const shippingCharge = subtotal >= freeShippingThreshold || subtotal === 0 ? 0 : defaultShippingCharge;
@@ -294,9 +294,12 @@ export default function CartPage() {
               <div className="flex justify-between items-center text-brand-stone">
                 <span>Shipping Fee</span>
                 {shippingCharge === 0 ? (
-                  <span className="font-extrabold text-emerald-400 uppercase tracking-widest text-[10px]">
-                    FREE
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="line-through text-zinc-500 text-xs">₹50</span>
+                    <span className="font-extrabold text-emerald-400 uppercase tracking-widest text-[10px]">
+                      FREE
+                    </span>
+                  </div>
                 ) : (
                   <span className="font-semibold text-brand-offwhite">
                     ₹{(shippingCharge / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}
