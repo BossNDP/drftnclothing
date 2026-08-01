@@ -84,37 +84,28 @@ export const DriftModePopup: React.FC = () => {
     if (pathname?.startsWith('/admin')) return;
     if (!isActive || codeUsed) return;
 
-    if (isSignedIn) {
-      // Server-side frequency cap: Maximum 2 total views per logged-in user
-      if (popupShownCount >= 2) return;
-    } else {
-      // LocalStorage frequency cap for guest users
-      try {
-        const guestCount = parseInt(localStorage.getItem('drftn_drift_popup_guest_count') || '0', 10);
-        if (guestCount >= 2) return;
+    // Client-side session frequency cap for all users
+    try {
+      const sessionCount = parseInt(sessionStorage.getItem('drftn_drift_popup_session_count') || '0', 10);
+      if (sessionCount >= 2) return;
 
-        const dismissedAt = localStorage.getItem('drftn_drift_popup_dismissed_at');
-        if (dismissedAt) {
-          const timeDiff = Date.now() - parseInt(dismissedAt, 10);
-          if (timeDiff < GUEST_DISMISS_TTL_MS) {
-            return; // Enforce 24hr TTL after dismissal
-          }
+      const dismissedAt = localStorage.getItem('drftn_drift_popup_dismissed_at');
+      if (dismissedAt) {
+        const timeDiff = Date.now() - parseInt(dismissedAt, 10);
+        if (timeDiff < GUEST_DISMISS_TTL_MS) {
+          return; // Enforce 24hr TTL after explicit dismissal
         }
-      } catch {}
-    }
+      }
+    } catch {}
 
     const timer = setTimeout(() => {
       setIsOpen(true);
 
-      // Track view count upon automatic display
-      if (isSignedIn) {
-        trackPopupView();
-      } else {
-        try {
-          const currentCount = parseInt(localStorage.getItem('drftn_drift_popup_guest_count') || '0', 10);
-          localStorage.setItem('drftn_drift_popup_guest_count', (currentCount + 1).toString());
-        } catch {}
-      }
+      // Track view count upon automatic display (client-side per session)
+      try {
+        const currentCount = parseInt(sessionStorage.getItem('drftn_drift_popup_session_count') || '0', 10);
+        sessionStorage.setItem('drftn_drift_popup_session_count', (currentCount + 1).toString());
+      } catch {}
     }, 1200);
 
     return () => clearTimeout(timer);
