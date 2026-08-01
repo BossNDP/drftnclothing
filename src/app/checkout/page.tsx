@@ -492,19 +492,29 @@ function isGibberishText(str: string): boolean {
 
       const orderData = await res.json();
 
-      // Scenario A: Razorpay Prepaid flow
-      if (paymentMethod === 'razorpay' && storeConfig.razorpayActive && orderData.razorpayOrderId) {
+      // Scenario A: Online Payment via Razorpay (Prepaid & COD Deposit)
+      if (storeConfig.razorpayActive && orderData.razorpayOrderId) {
+        console.log('[Checkout] Launching Razorpay SDK modal for payment...', {
+          paymentMethod,
+          orderId: orderData.orderId,
+          razorpayOrderId: orderData.razorpayOrderId,
+          amountPaise: orderData.amount,
+        });
+
         const sdkLoaded = await loadRazorpaySDK();
         if (!sdkLoaded) {
-          throw new Error('Failed to load Razorpay payment SDK. Please try again.');
+          console.error('[Checkout] Razorpay SDK failed to load');
+          throw new Error('Payment gateway failed to load. Please check your network and try again.');
         }
+
+        const isCodDeposit = paymentMethod === 'cod';
 
         const options = {
           key: storeConfig.razorpayKeyId,
-          amount: orderData.amount,
+          amount: orderData.amount, // ₹200 for COD deposit, or total for prepaid
           currency: 'INR',
           name: 'DRFTN CLOTHING',
-          description: 'Drift in Style',
+          description: isCodDeposit ? '₹200 COD Deposit Payment' : 'Drift in Style - Streetwear Order',
           order_id: orderData.razorpayOrderId,
           prefill: {
             name: formData.name,
@@ -515,6 +525,13 @@ function isGibberishText(str: string): boolean {
             color: '#E63329',
           },
           handler: async function (response: any) {
+            console.log('[Checkout Handler] Razorpay callback received:', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              orderId: orderData.orderId,
+              isCodDeposit,
+            });
+
             setIsProcessing(true);
             try {
               const verifyRes = await fetch('/api/orders/verify-payment', {
@@ -530,16 +547,24 @@ function isGibberishText(str: string): boolean {
 
               if (!verifyRes.ok) {
                 const verifyError = await verifyRes.json();
-                throw new Error(verifyError.error || 'Signature verification failed');
+                console.error('[Checkout Handler] Server payment verification failed:', verifyError);
+                throw new Error(verifyError.error || 'Server signature verification failed');
               }
 
               const verifyData = await verifyRes.json();
               if (verifyData.success) {
-                addToast('Payment successful! Order confirmed.', 'success');
+                console.log('[Checkout Handler] Order confirmed successfully:', verifyData);
+                addToast(
+                  isCodDeposit
+                    ? '₹200 COD deposit verified! Order confirmed.'
+                    : 'Payment successful! Order confirmed.',
+                  'success'
+                );
                 clearCart();
                 router.push(`/order-confirmation/${orderData.orderId}`);
               }
             } catch (err: any) {
+              console.error('[Checkout Handler] Error during payment verification:', err);
               addToast(err.message || 'Payment verification failed', 'error');
             } finally {
               setIsProcessing(false);
@@ -547,25 +572,31 @@ function isGibberishText(str: string): boolean {
           },
           modal: {
             ondismiss: function () {
+              console.warn('[Checkout Modal] Razorpay payment modal dismissed by user.');
               setIsProcessing(false);
-              addToast('Payment cancelled by user.', 'error');
+              addToast(
+                isCodDeposit
+                  ? 'COD deposit payment was cancelled. Your order has not been placed.'
+                  : 'Payment cancelled by user. Order not placed.',
+                'error'
+              );
             },
           },
         };
 
         const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (resp: any) {
+          console.error('[Checkout Modal] Razorpay payment failed event:', resp.error);
+          setIsProcessing(false);
+          addToast(`Payment failed: ${resp.error?.description || 'Transaction declined'}`, 'error');
+        });
         rzp.open();
         // Do NOT reset isProcessing here — the modal handler / ondismiss will do it
         return;
       } 
-      // Scenario B: COD / Cash on Delivery flow (Prepaid setting active but COD selected)
-      else if (paymentMethod === 'cod' && storeConfig.razorpayActive) {
-        addToast('Order placed successfully (Cash on Delivery)!', 'success');
-        clearCart();
-        router.push(`/order-confirmation/${orderData.orderId}`);
-      } 
-      // Scenario C: Razorpay NOT configured -> WhatsApp manual payment ordering fallback
+      // Scenario B: Manual Fallback (Only when Razorpay is inactive on the store)
       else {
+        console.warn('[Checkout] Razorpay gateway is inactive. Using manual WhatsApp ordering flow.');
         addToast('Order placed. Redirecting to WhatsApp to complete payment...', 'success');
         
         // Prepare pre-filled WhatsApp message
