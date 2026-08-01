@@ -109,10 +109,21 @@ export class ShiprocketAdapter {
     const token = await getShiprocketToken(payload.orderNumber);
     const isCod = payload.paymentType === 'cod';
 
-    // For COD: collect ONLY remainingAmount (in rupees)
-    const collectibleAmountRupees = isCod
-      ? Math.round(payload.remainingAmount / 100)
-      : Math.round(payload.total / 100);
+    if (isCod && (payload.remainingAmount === undefined || payload.remainingAmount === null || Number.isNaN(payload.remainingAmount))) {
+      throw new Error(`CRITICAL: remainingAmount is invalid (${payload.remainingAmount}) for COD order ${payload.orderNumber}. Halting to prevent double-charge.`);
+    }
+
+    const targetCollectAmount = isCod ? payload.remainingAmount : payload.total;
+    const diffPaise = payload.subtotal - targetCollectAmount;
+    
+    let discountRupees = 0;
+    let shippingChargesRupees = 0;
+    
+    if (diffPaise > 0) {
+      discountRupees = Math.round(diffPaise / 100);
+    } else if (diffPaise < 0) {
+      shippingChargesRupees = Math.round(Math.abs(diffPaise) / 100);
+    }
 
     const shiprocketPayload = {
       order_id: payload.orderNumber,
@@ -137,6 +148,8 @@ export class ShiprocketAdapter {
       })),
       payment_method: isCod ? 'COD' : 'Prepaid',
       sub_total: Math.round(payload.subtotal / 100),
+      discount: discountRupees,
+      shipping_charges: shippingChargesRupees,
       length: 10,
       breadth: 10,
       height: 10,
@@ -245,7 +258,15 @@ export class ShiprocketAdapter {
     await writeAuditLog({
       orderId: payload.orderId,
       action: 'SHIPROCKET_ORDER_CREATED',
-      details: { shiprocketOrderId, shipmentId, awbCode, courierName, collectibleAmountRupees },
+      details: { 
+        shiprocketOrderId, 
+        shipmentId, 
+        awbCode, 
+        courierName, 
+        collectibleAmountRupees: Math.round(targetCollectAmount / 100),
+        discountSent: discountRupees,
+        shippingChargesSent: shippingChargesRupees
+      },
     });
 
     return {
