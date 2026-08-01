@@ -406,6 +406,7 @@ export const driftModeCoupons = pgTable("drift_mode_coupons", {
   used: boolean("used").notNull().default(false),
   used_at: timestamp("used_at", { withTimezone: true }),
   order_id: uuid("order_id"),
+  popup_shown_count: integer("popup_shown_count").notNull().default(0),
   created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('drift_mode_coupons_user_id_idx').on(t.user_id),

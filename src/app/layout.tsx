@@ -37,6 +37,7 @@ const spaceMono = Space_Mono({
 });
 
 const WhatsAppButton = dynamic(() => import('@/components/WhatsAppButton'), { ssr: false });
+const SaleLiveBadge = dynamic(() => import('@/components/SaleLiveBadge'), { ssr: false });
 const PushPrompt = dynamic(() => import('@/components/PushPrompt'), { ssr: false });
 const NotificationToast = dynamic(() => import('@/components/NotificationToast'), { ssr: false });
 const TopBanner = dynamic(() => import('@/components/TopBanner'), { ssr: false });
@@ -239,6 +240,7 @@ export default function RootLayout({
                 <MiniCart />
                 <MobileNavbar />
                 <WhatsAppButton />
+                <SaleLiveBadge />
                 <ToastContainer />
                 <AddToCartAnimation />
                 <PushPrompt />

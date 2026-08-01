@@ -7,11 +7,12 @@ export interface EligibilityResult {
   extraCharge: number; // in Rupees (e.g. 150)
   shiprocketAvailable: boolean;
   estimatedStandardDays: number;
+  codAvailable: boolean;
 }
 
 /**
  * Single shared helper to check shipping serviceability for a PIN code.
- * Checks Redis cache first (TTL: 20 minutes). If cache miss, queries Borzo (or runs mock).
+ * Checks Redis cache first (TTL: 20 minutes). If cache miss, queries Borzo & Shiprocket serviceability.
  */
 export async function checkDeliveryEligibility(pincode: string): Promise<EligibilityResult> {
   const cleanPincode = pincode.trim();
@@ -21,6 +22,7 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
       extraCharge: 0,
       shiprocketAvailable: false,
       estimatedStandardDays: 5,
+      codAvailable: false,
     };
   }
 
@@ -43,6 +45,7 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
   let borzoEligible = false;
   let extraCharge = 150; // Default flat ₹150 for express local delivery
   let shiprocketAvailable = true; // Default standard serviceability
+  let codAvailable = true;
 
   // Determine standard Shiprocket delivery days
   let estimatedStandardDays = 5; // Default 4-6 days
@@ -77,7 +80,7 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
       });
 
       const endpoint = process.env.BORZO_API_URL || 'https://robot.borzodelivery.com/api/business/1.8/calculate-order';
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -88,12 +91,12 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
           points: [
             {
               address: pickupAddr,
-              contact_person: { phone: '917406164512' }
+              contact_person: { phone: '917406164512' },
             },
             {
               address: `Bengaluru, Karnataka - ${cleanPincode}`,
-              contact_person: { phone: '919999999999' }
-            }
+              contact_person: { phone: '919999999999' },
+            },
           ],
           matter: 'Clothing Delivery serviceability check',
           total_weight_kg: 0.5,
@@ -105,7 +108,6 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
 
       if (response.ok && resData.is_successful !== false && resData.order?.payment_amount) {
         borzoEligible = true;
-        // Map to standard charge (e.g. Borzo cost rounded up, or standard ₹150 flat premium)
         const rawAmount = parseFloat(resData.order.payment_amount);
         extraCharge = isNaN(rawAmount) ? 150 : Math.max(120, Math.ceil(rawAmount));
         console.log(`[Shipping Eligibility] Real Borzo API check SUCCESS for ${cleanPincode}. Cost: ${extraCharge}`);
@@ -126,6 +128,7 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
     extraCharge,
     shiprocketAvailable,
     estimatedStandardDays,
+    codAvailable,
   };
 
   // 3. Cache the computed result in Redis for 20 minutes (1200 seconds)
@@ -142,19 +145,11 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
  * getDeliveryEligibilityCacheOnly
  *
  * CHECKOUT-SAFE variant of checkDeliveryEligibility.
- * Reads ONLY from Redis cache — never calls the Borzo API.
- *
- * On cache miss: returns safe defaults (borzoEligible: false, standard shipping).
- * The caller (orders/create) must not block checkout on a live Borzo API call.
- *
- * The cache is populated by the /api/shipping/serviceability endpoint, which the
- * frontend calls when the customer enters their address before clicking Pay.
- * By checkout time the cache is almost always warm.
+ * Reads ONLY from Redis cache — never calls external APIs.
  */
 export async function getDeliveryEligibilityCacheOnly(pincode: string): Promise<EligibilityResult> {
   const cleanPincode = pincode.trim();
 
-  // Determine standard delivery days without any external call
   let estimatedStandardDays = 5;
   if (cleanPincode.startsWith('560')) estimatedStandardDays = 2;
   else if (cleanPincode.startsWith('5')) estimatedStandardDays = 3;
@@ -164,9 +159,10 @@ export async function getDeliveryEligibilityCacheOnly(pincode: string): Promise<
     extraCharge: 0,
     shiprocketAvailable: true,
     estimatedStandardDays,
+    codAvailable: true,
   };
 
-  if (!/^\d{6}$/.test(cleanPincode)) return safeDefault;
+  if (!/^\d{6}$/.test(cleanPincode)) return { ...safeDefault, shiprocketAvailable: false, codAvailable: false };
 
   const cacheKey = `delivery:pincode:${cleanPincode}`;
 
@@ -180,11 +176,5 @@ export async function getDeliveryEligibilityCacheOnly(pincode: string): Promise<
     console.error('[Shipping Eligibility] Redis cache read failed (cache-only path):', err);
   }
 
-  // Cache miss — return safe default. Checkout will use standard shipping.
-  // The live Borzo check runs at the serviceability step, not here.
-  console.log(
-    `[Shipping Eligibility] Cache MISS (cache-only path) for pincode ${cleanPincode}. Defaulting to standard shipping.`
-  );
   return safeDefault;
 }
-

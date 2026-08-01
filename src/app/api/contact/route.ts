@@ -4,9 +4,9 @@ import * as schema from '@/db/schema';
 import { z } from 'zod';
 
 const contactSchema = z.object({
-  name: z.string().min(2).max(100),
+  name: z.string().min(1).max(100),
   email: z.string().email(),
-  message: z.string().min(5).max(1000),
+  message: z.string().min(1).max(2000),
 });
 
 export async function POST(request: Request) {

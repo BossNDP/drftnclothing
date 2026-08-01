@@ -20,15 +20,30 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      return addToast('Please fill in all fields', 'error');
+    }
     setIsSubmitting(true);
 
     try {
-      await db.createContactSubmission(formData);
-      addToast('Message sent successfully. We will get back to you soon!', 'success');
+      // 1. Record message to database (fire and forget)
+      db.createContactSubmission(formData).catch((err) => {
+        console.warn('Database contact record warning:', err);
+      });
+
+      // 2. Prepare pre-filled WhatsApp message to +91 7406164512
+      const messageText = `Hello DRFTN CLOTHING!%0A%0A*Name:* ${encodeURIComponent(formData.name.trim())}%0A*Email:* ${encodeURIComponent(formData.email.trim())}%0A*Message:* ${encodeURIComponent(formData.message.trim())}`;
+      const whatsappUrl = `https://wa.me/917406164512?text=${messageText}`;
+
+      addToast('Opening WhatsApp to send your message...', 'success');
+
+      // 3. Open WhatsApp in new window
+      window.open(whatsappUrl, '_blank');
+
       setFormData({ name: '', email: '', message: '' });
     } catch (error) {
       console.error(error);
-      addToast('Failed to send message. Please try again.', 'error');
+      addToast('Failed to prepare WhatsApp message. Please try again.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +90,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider text-brand-offwhite mb-1">Email</h3>
-                <a href="mailto:support@drftn.in" className="text-zinc-500 text-sm hover:text-brand-offwhite transition-colors">support@drftn.in</a>
+                <a href="mailto:drftnclothing@gmail.com" className="text-zinc-500 text-sm hover:text-brand-offwhite transition-colors">drftnclothing@gmail.com</a>
               </div>
             </div>
           </div>

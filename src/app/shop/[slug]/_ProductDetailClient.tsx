@@ -118,6 +118,7 @@ export default function ProductDetailClient({
     extraCharge: number;
     shiprocketAvailable: boolean;
     estimatedStandardDays: number;
+    codAvailable?: boolean;
   } | null>(null);
 
   const [recentPurchases, setRecentPurchases] = useState<RecentPurchaseEvent[]>([]);
@@ -827,25 +828,27 @@ export default function ProductDetailClient({
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-1.5 pt-1 text-xs font-mono"
                 >
-                  {eligibilityResult.borzoEligible ? (
-                    <div className="flex items-center gap-1.5 text-emerald-400">
-                      <Zap className="w-3.5 h-3.5 shrink-0" />
-                      <span>
-                        <strong>Express Local Delivery Available:</strong> Arrives within 24 hours.
-                      </span>
-                    </div>
+                  {eligibilityResult.shiprocketAvailable !== false ? (
+                    <>
+                      <div className="flex items-center gap-1.5 text-zinc-300">
+                        <Truck className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
+                        <span>
+                          Delivery available to <strong>{pincode}</strong> • Est. delivery in{' '}
+                          <strong>{eligibilityResult.estimatedStandardDays} business days</strong>.
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-zinc-400 pl-5">
+                        {eligibilityResult.codAvailable !== false
+                          ? '✓ Cash on Delivery (COD) Available • Easy Returns'
+                          : '✕ COD not available for this pincode (Prepaid only) • Easy Returns'}
+                      </div>
+                    </>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-zinc-300">
-                      <Truck className="w-3.5 h-3.5 shrink-0 text-zinc-400" />
-                      <span>
-                        Standard Express: Estimated delivery in{' '}
-                        <strong>{eligibilityResult.estimatedStandardDays} business days</strong>.
-                      </span>
+                    <div className="flex items-center gap-1.5 text-red-400">
+                      <X className="w-3.5 h-3.5 shrink-0" />
+                      <span>Currently not deliverable to pincode {pincode}.</span>
                     </div>
                   )}
-                  <div className="text-[11px] text-zinc-400 pl-5">
-                    ✓ Cash on Delivery (COD) Available • Easy Returns
-                  </div>
                 </motion.div>
               )}
             </div>
@@ -915,7 +918,7 @@ export default function ProductDetailClient({
                     >
                       <div className="pt-3 text-xs text-zinc-400 font-sans leading-relaxed space-y-1">
                         <div>
-                          Orders ship within 24 hours from our Yelahanka, Bengaluru warehouse.
+                          Orders are dispatched directly from our Yelahanka, Bengaluru warehouse.
                         </div>
                         <div className="font-mono text-[11px] text-zinc-400">
                           Free shipping on prepaid orders over ₹1,999.
@@ -934,7 +937,7 @@ export default function ProductDetailClient({
                   }
                   className="w-full flex items-center justify-between text-xs font-mono font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-colors"
                 >
-                  <span>7-Day Return Policy</span>
+                  <span>3-Day Return Policy</span>
                   <Plus
                     className={`w-4 h-4 transition-transform duration-200 ${
                       openAccordion === 'returns' ? 'rotate-45 text-white' : 'text-zinc-500'
@@ -952,7 +955,7 @@ export default function ProductDetailClient({
                     >
                       <div className="pt-3 text-xs text-zinc-400 font-sans leading-relaxed space-y-1">
                         <div>
-                          Hassle-free 7-day doorstep size exchange & returns. Items must be unworn with original tags attached.
+                          3-day doorstep size exchange & returns. Contact us at +91 7406164512 via WhatsApp or call to initiate return.
                         </div>
                       </div>
                     </motion.div>

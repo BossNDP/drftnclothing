@@ -596,7 +596,7 @@ export const dbService = {
       const schema = await import('@/db/schema');
       const { eq, ne, and, desc, inArray, asc } = await import('drizzle-orm');
 
-      const rawList = await dbHttp
+      let rawList = await dbHttp
         .select()
         .from(schema.products)
         .where(and(
@@ -606,6 +606,22 @@ export const dbService = {
         ))
         .orderBy(desc(schema.products.created_at))
         .limit(limit);
+
+      if (rawList.length < limit) {
+        const existingIds = [currentProductId, ...rawList.map((p: any) => p.id)];
+        const { notInArray } = await import('drizzle-orm');
+        const backfillList = await dbHttp
+          .select()
+          .from(schema.products)
+          .where(and(
+            eq(schema.products.is_active, true),
+            notInArray(schema.products.id, existingIds)
+          ))
+          .orderBy(desc(schema.products.created_at))
+          .limit(limit - rawList.length);
+
+        rawList = [...rawList, ...backfillList];
+      }
 
       if (rawList.length === 0) return [];
 

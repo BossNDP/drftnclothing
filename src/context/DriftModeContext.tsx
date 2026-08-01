@@ -8,9 +8,12 @@ interface DriftModeContextType {
   discountPercent: number;
   userCode: string | null;
   codeUsed: boolean;
+  codeGenerated: boolean;
+  popupShownCount: number;
   isLoading: boolean;
   refreshStatus: () => Promise<void>;
   fetchOrCreateUserCode: () => Promise<string | null>;
+  trackPopupView: () => Promise<number>;
 }
 
 const DriftModeContext = createContext<DriftModeContextType>({
@@ -18,9 +21,12 @@ const DriftModeContext = createContext<DriftModeContextType>({
   discountPercent: 20,
   userCode: null,
   codeUsed: false,
+  codeGenerated: false,
+  popupShownCount: 0,
   isLoading: true,
   refreshStatus: async () => {},
   fetchOrCreateUserCode: async () => null,
+  trackPopupView: async () => 0,
 });
 
 export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,6 +34,8 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [discountPercent, setDiscountPercent] = useState<number>(20);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [codeUsed, setCodeUsed] = useState<boolean>(false);
+  const [codeGenerated, setCodeGenerated] = useState<boolean>(false);
+  const [popupShownCount, setPopupShownCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { isSignedIn } = useAuth();
 
@@ -38,6 +46,9 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const data = await res.json();
         setIsActive(!!data.is_active);
         setDiscountPercent(data.discount_percent || 20);
+        setPopupShownCount(data.popup_shown_count || 0);
+        setCodeGenerated(!!data.code_generated);
+        setCodeUsed(!!data.code_used);
       }
     } catch (err) {
       console.error('[DriftModeContext] Failed to fetch status:', err);
@@ -56,6 +67,7 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (res.ok && data.code) {
         setUserCode(data.code);
         setCodeUsed(false);
+        setCodeGenerated(true);
         return data.code;
       } else if (data.error === 'already_used') {
         setCodeUsed(true);
@@ -68,9 +80,28 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return null;
   }, []);
 
+  const trackPopupView = useCallback(async (): Promise<number> => {
+    try {
+      const res = await fetch('/api/drift-mode/track-view', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.popup_shown_count === 'number') {
+          setPopupShownCount(data.popup_shown_count);
+          return data.popup_shown_count;
+        }
+      }
+    } catch (err) {
+      console.error('[DriftModeContext] Failed to track popup view:', err);
+    }
+    return popupShownCount + 1;
+  }, [popupShownCount]);
+
   useEffect(() => {
     refreshStatus();
-  }, [refreshStatus]);
+  }, [refreshStatus, isSignedIn]);
 
   useEffect(() => {
     if (isActive && isSignedIn) {
@@ -85,9 +116,12 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         discountPercent,
         userCode,
         codeUsed,
+        codeGenerated,
+        popupShownCount,
         isLoading,
         refreshStatus,
         fetchOrCreateUserCode,
+        trackPopupView,
       }}
     >
       {children}

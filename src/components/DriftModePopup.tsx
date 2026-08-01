@@ -6,11 +6,19 @@ import { useDriftMode } from '@/context/DriftModeContext';
 import { useAuthSession } from '@/context/AuthContext';
 import { X } from 'lucide-react';
 
-const DISMISS_TTL_MS = 12 * 60 * 60 * 1000; // 12 Hours
+const GUEST_DISMISS_TTL_MS = 24 * 60 * 60 * 1000; // 24 Hours TTL for unauthenticated users
 
 export const DriftModePopup: React.FC = () => {
   const pathname = usePathname();
-  const { isActive, discountPercent, userCode, codeUsed, fetchOrCreateUserCode } = useDriftMode();
+  const {
+    isActive,
+    discountPercent,
+    userCode,
+    codeUsed,
+    popupShownCount,
+    fetchOrCreateUserCode,
+    trackPopupView,
+  } = useDriftMode();
   const { isSignedIn, openAuthModal } = useAuthSession();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -22,16 +30,19 @@ export const DriftModePopup: React.FC = () => {
     setIsOpen(false);
   }, []);
 
-  const handleDismiss = useCallback((e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    try {
-      localStorage.setItem('drftn_drift_popup_dismissed', Date.now().toString());
-    } catch {}
-    closePopup();
-  }, [closePopup]);
+  const handleDismiss = useCallback(
+    (e?: React.MouseEvent) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      try {
+        localStorage.setItem('drftn_drift_popup_dismissed_at', Date.now().toString());
+      } catch {}
+      closePopup();
+    },
+    [closePopup]
+  );
 
   const handleCopyAndShop = useCallback(() => {
     if (userCode) {
@@ -42,7 +53,10 @@ export const DriftModePopup: React.FC = () => {
     setTimeout(() => {
       closePopup();
       setTimeout(() => {
-        const target = document.getElementById('shop') || document.getElementById('products') || document.querySelector('main');
+        const target =
+          document.getElementById('shop') ||
+          document.getElementById('products') ||
+          document.querySelector('main');
         if (target) {
           target.scrollIntoView({ behavior: 'smooth' });
         }
@@ -65,26 +79,55 @@ export const DriftModePopup: React.FC = () => {
     });
   }, [userCode]);
 
+  // Handle automatic eligibility check and popup display
   useEffect(() => {
     if (pathname?.startsWith('/admin')) return;
     if (!isActive || codeUsed) return;
 
-    try {
-      const dismissedAt = localStorage.getItem('drftn_drift_popup_dismissed');
-      if (dismissedAt) {
-        const timeDiff = Date.now() - parseInt(dismissedAt, 10);
-        if (timeDiff < DISMISS_TTL_MS) {
-          // Can show for testing
+    if (isSignedIn) {
+      // Server-side frequency cap: Maximum 2 total views per logged-in user
+      if (popupShownCount >= 2) return;
+    } else {
+      // LocalStorage frequency cap for guest users
+      try {
+        const guestCount = parseInt(localStorage.getItem('drftn_drift_popup_guest_count') || '0', 10);
+        if (guestCount >= 2) return;
+
+        const dismissedAt = localStorage.getItem('drftn_drift_popup_dismissed_at');
+        if (dismissedAt) {
+          const timeDiff = Date.now() - parseInt(dismissedAt, 10);
+          if (timeDiff < GUEST_DISMISS_TTL_MS) {
+            return; // Enforce 24hr TTL after dismissal
+          }
         }
-      }
-    } catch {}
+      } catch {}
+    }
 
     const timer = setTimeout(() => {
       setIsOpen(true);
-    }, 1000);
+
+      // Track view count upon automatic display
+      if (isSignedIn) {
+        trackPopupView();
+      } else {
+        try {
+          const currentCount = parseInt(localStorage.getItem('drftn_drift_popup_guest_count') || '0', 10);
+          localStorage.setItem('drftn_drift_popup_guest_count', (currentCount + 1).toString());
+        } catch {}
+      }
+    }, 1200);
 
     return () => clearTimeout(timer);
-  }, [isActive, codeUsed, pathname]);
+  }, [isActive, codeUsed, pathname, isSignedIn, popupShownCount, trackPopupView]);
+
+  // Listen for manual trigger event (e.g. from Floating "Sale is Live" badge)
+  useEffect(() => {
+    const handleManualOpen = () => {
+      setIsOpen(true);
+    };
+    window.addEventListener('open-drift-popup', handleManualOpen);
+    return () => window.removeEventListener('open-drift-popup', handleManualOpen);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;

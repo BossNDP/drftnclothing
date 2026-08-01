@@ -62,7 +62,7 @@ const POLICIES: Record<string, PolicyData> = {
       },
       {
         heading: '4. User Rights & Retention',
-        content: 'You retain full rights to request access, rectification, or absolute deletion of your personal records. For inquiries, email support@drftn.in. We retain transaction data only as required to comply with financial accounting and regulatory standards.'
+        content: 'You retain full rights to request access, rectification, or absolute deletion of your personal records. For inquiries, email drftnclothing@gmail.com. We retain transaction data only as required to comply with financial accounting and regulatory standards.'
       }
     ]
   },
@@ -86,25 +86,25 @@ const POLICIES: Record<string, PolicyData> = {
     ]
   },
   'refund-return-exchange-policy': {
-    title: 'Return, Exchange & Refund Policy',
+    title: 'Return & Refund Policy',
     icon: RefreshCw,
-    lastUpdated: 'July 2026',
+    lastUpdated: 'August 2026',
     sections: [
       {
-        heading: '1. 7-Day Easy Return Window',
-        content: 'We offer a 7-day return and exchange policy from the date of package delivery. If you are not fully satisfied with the fit or style of your streetwear piece, you may request a return or exchange.'
+        heading: '1. 3-Day Return Window',
+        content: 'At DRFTN, we want you to love what you wear. If something isn\'t right, you can request a return within 3 days of delivery.'
       },
       {
-        heading: '2. Conditions for Return',
-        content: 'Items must be returned in their original condition: unworn, unwashed, with tags attached, and inside the original shipping packaging. Clearances, drop sales, and innerwear accessories are not eligible for returns due to hygiene standards.'
+        heading: '2. How to Initiate a Return',
+        content: 'Contact us directly at +91 7406164512 via:\n• WhatsApp (message us with your order ID and reason for return)\n• Phone call (same number, during business hours)\n\nPlease do not ship items back without confirming with us first — we\'ll guide you through the return process once your request is verified.'
       },
       {
-        heading: '3. Return Shipping Cost',
-        content: 'Return pickups are fully covered by DRFTN CLOTHING for manufacturing defects or incorrect sizing dispatches. For normal returns or sizing swaps, a convenience pickup fee of ₹99 may be deducted from the refund balance.'
+        heading: '3. Conditions for Return',
+        content: '• Item must be unused, unworn, and in original condition with tags attached.\n• Return request must be raised within 3 days of the delivery date.\n• Original packaging should be intact where possible.'
       },
       {
-        heading: '4. Refund Processing',
-        content: 'Once the returned item is inspected at our Bengaluru warehouse, refunds are initiated within 48 hours. The amount will reflect in your original payment method (bank account, card, or UPI) in 5-7 business days. COD orders are refunded as store credits or UPI transfer.'
+        heading: '4. Pickup & Refund Processing',
+        content: 'Once your return is approved, we\'ll arrange pickup and process your refund after the item is received and inspected at our warehouse.'
       }
     ]
   },
@@ -138,7 +138,7 @@ const POLICIES: Record<string, PolicyData> = {
     sections: [
       {
         heading: '1. Pre-Shipment Cancellation',
-        content: 'You can request to cancel your order at any time before the shipment is dispatched from our fulfillment center. Please request a cancellation by logging into your profile or contacting support@drftn.in.'
+        content: 'You can request to cancel your order at any time before the shipment is dispatched from our fulfillment center. Please request a cancellation by logging into your profile or contacting drftnclothing@gmail.com.'
       },
       {
         heading: '2. Post-Shipment Cancellation',

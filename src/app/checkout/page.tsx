@@ -1114,7 +1114,7 @@ function isGibberishText(str: string): boolean {
                   <ShieldCheck className="w-3 h-3 text-zinc-650" /> SECURE CHECKOUT
                 </span>
                 <span className="flex items-center gap-1">
-                  <Package className="w-3 h-3 text-zinc-650" /> 7-DAY RETURNS
+                  <Package className="w-3 h-3 text-zinc-650" /> 3-DAY RETURNS
                 </span>
               </div>
             </form>
@@ -1271,7 +1271,7 @@ function isGibberishText(str: string): boolean {
                     <ShieldCheck className="w-3 h-3 text-zinc-650" /> SECURE CHECKOUT
                   </span>
                   <span className="flex items-center gap-1">
-                    <Package className="w-3 h-3 text-zinc-650" /> 7-DAY RETURNS
+                    <Package className="w-3 h-3 text-zinc-650" /> 3-DAY RETURNS
                   </span>
                 </div>
               </div>
