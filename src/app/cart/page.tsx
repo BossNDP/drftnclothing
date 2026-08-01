@@ -294,12 +294,9 @@ export default function CartPage() {
               <div className="flex justify-between items-center text-brand-stone">
                 <span>Shipping Fee</span>
                 {shippingCharge === 0 ? (
-                  <div className="flex items-center gap-2">
-                    <span className="line-through text-zinc-500 text-xs">₹50</span>
-                    <span className="font-extrabold text-emerald-400 uppercase tracking-widest text-[10px]">
-                      FREE
-                    </span>
-                  </div>
+                  <span className="font-extrabold text-emerald-400 uppercase tracking-widest text-[10px]">
+                    FREE
+                  </span>
                 ) : (
                   <span className="font-semibold text-brand-offwhite">
                     ₹{(shippingCharge / 100).toLocaleString('en-IN', { minimumFractionDigits: 0 })}

@@ -36,9 +36,9 @@ export async function GET() {
     return NextResponse.json({
       razorpayActive,
       razorpayKeyId: razorpayActive ? razorpayKeyId : '',
-      freeShippingThreshold,
-      defaultShippingCharge,
-      codFee,
+      freeShippingThreshold: 0, // Free Shipping Sale (₹0)
+      defaultShippingCharge: 0, // Free Shipping Sale (₹0)
+      codFee: 0,                // Free Shipping Sale (₹0)
       whatsappNumber: '+917406164512',
       blrPincodeRanges,
       borzoSurcharge,

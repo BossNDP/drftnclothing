@@ -345,18 +345,13 @@ export default function CheckoutPage() {
       ? (discountedSubtotal >= (storeConfig.borzoFreeThreshold ?? 149900) ? 0 : (checkoutEligibility?.extraCharge ?? 150) * 100)
       : 0;
 
-    // Shipping calculation
+    // Shipping calculation (Free Shipping Sale: Standard delivery is 100% FREE, 0 shipping charge)
     let shippingCharge = 0;
     if (fulfillmentType === 'delivery') {
       if (shippingProvider === 'express' && expressAvailable) {
         shippingCharge = expressCharge;
       } else {
-        shippingCharge = discountedSubtotal >= storeConfig.freeShippingThreshold ? 0 : storeConfig.defaultShippingCharge;
-      }
-      
-      // Add COD fee if COD is selected (only standard delivery allows COD)
-      if (paymentMethod === 'cod' && shippingProvider === 'standard' && storeConfig.razorpayActive) {
-        shippingCharge += storeConfig.codFee;
+        shippingCharge = 0; // Free Shipping Sale
       }
     }
 
@@ -1354,15 +1349,8 @@ function isGibberishText(str: string): boolean {
               
               <div className="flex justify-between text-zinc-500">
                 <span>Shipping</span>
-                <span className="font-mono text-zinc-400">
-                  {shippingCharge === 0 ? (
-                    <>
-                      <span className="line-through text-zinc-600 mr-2 text-xs">₹50.00</span>
-                      <span className="text-emerald-400 font-extrabold">FREE</span>
-                    </>
-                  ) : (
-                    `₹${(shippingCharge / 100).toFixed(2)}`
-                  )}
+                <span className="font-mono font-extrabold text-emerald-400">
+                  {shippingCharge === 0 ? 'FREE' : `₹${(shippingCharge / 100).toFixed(2)}`}
                 </span>
               </div>
               
