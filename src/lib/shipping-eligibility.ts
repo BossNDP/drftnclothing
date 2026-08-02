@@ -68,7 +68,6 @@ export async function checkDeliveryEligibility(pincode: string): Promise<Eligibi
       borzoEligible = false;
       extraCharge = 0;
     }
-    console.log(`[Shipping Eligibility] [Mock Mode] Pincode ${cleanPincode} Borzo eligibility: ${borzoEligible}`);
   } else {
     // Real API Call Mode
     try {

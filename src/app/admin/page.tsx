@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '@/lib/db';
 import { Order, Product } from '@/types';
-import { IndianRupee, ShoppingBag, Package, TrendingUp, AlertTriangle, Users } from 'lucide-react';
+import { IndianRupee, ShoppingBag, Package, TrendingUp, AlertTriangle, Users, Eye, Calendar, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { DriftModeAdminCard } from '@/components/DriftModeAdminCard';
 
@@ -12,15 +12,21 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [activeUsersCount, setActiveUsersCount] = useState<number>(0);
   const [activeUsers, setActiveUsers] = useState<{ id: string; name: string; email: string | null; phone: string | null }[]>([]);
+  const [visitorStats, setVisitorStats] = useState<{ liveVisitors: number; monthlyVisitors: number; overallVisitors: number }>({
+    liveVisitors: 0,
+    monthlyVisitors: 0,
+    overallVisitors: 0,
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fetchedOrders, fetchedProducts, activeUsersRes] = await Promise.all([
+        const [fetchedOrders, fetchedProducts, activeUsersRes, visitorRes] = await Promise.all([
           db.getOrders(),
           db.getProducts(),
-          fetch('/api/admin/users/active').then(res => res.json()).catch(() => ({ success: false }))
+          fetch('/api/admin/users/active').then(res => res.json()).catch(() => ({ success: false })),
+          fetch('/api/admin/visitors/stats').then(res => res.json()).catch(() => ({ success: false })),
         ]);
         setOrders(fetchedOrders);
         setProducts(fetchedProducts);
@@ -28,27 +34,45 @@ export default function AdminDashboard() {
           setActiveUsersCount(activeUsersRes.count);
           setActiveUsers(activeUsersRes.users || []);
         }
+        if (visitorRes && visitorRes.success) {
+          setVisitorStats({
+            liveVisitors: visitorRes.liveVisitors || 0,
+            monthlyVisitors: visitorRes.monthlyVisitors || 0,
+            overallVisitors: visitorRes.overallVisitors || 0,
+          });
+        }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        // Silently handle error
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
     
-    // Refresh active users every 30 seconds
+    // Refresh active users & visitor stats every 15 seconds
     const interval = setInterval(async () => {
       try {
-        const res = await fetch('/api/admin/users/active');
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setActiveUsersCount(data.count);
-          setActiveUsers(data.users || []);
+        const [resUsers, resVisitors] = await Promise.all([
+          fetch('/api/admin/users/active'),
+          fetch('/api/admin/visitors/stats')
+        ]);
+        const dataUsers = await resUsers.json();
+        if (resUsers.ok && dataUsers.success) {
+          setActiveUsersCount(dataUsers.count);
+          setActiveUsers(dataUsers.users || []);
+        }
+        const dataVisitors = await resVisitors.json();
+        if (resVisitors.ok && dataVisitors.success) {
+          setVisitorStats({
+            liveVisitors: dataVisitors.liveVisitors || 0,
+            monthlyVisitors: dataVisitors.monthlyVisitors || 0,
+            overallVisitors: dataVisitors.overallVisitors || 0,
+          });
         }
       } catch (e) {
-        console.error('Failed to poll active users:', e);
+        // Silently handle polling error
       }
-    }, 30000);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, []);
@@ -122,13 +146,59 @@ export default function AdminDashboard() {
 
         <div className="bg-white border border-zinc-200/60 p-6 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)]">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Online Users</h3>
-            <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center relative">
-              <span className="absolute w-2.5 h-2.5 rounded-full bg-green-500 animate-ping opacity-75" />
-              <span className="w-2 h-2 rounded-full bg-green-500 relative" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Live Visitors</h3>
+            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center relative">
+              <span className="absolute w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping opacity-75" />
+              <Eye className="w-4 h-4 text-emerald-600 relative" />
             </div>
           </div>
-          <p className="text-2xl font-mono font-bold text-zinc-900">{activeUsersCount}</p>
+          <p className="text-2xl font-mono font-bold text-zinc-900">{visitorStats.liveVisitors}</p>
+          <p className="text-[10px] text-zinc-400 font-semibold mt-1 uppercase tracking-wider">Active in last 3 mins (Deduplicated)</p>
+        </div>
+      </div>
+
+      {/* Visitor Traffic Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-black text-white p-6 rounded-[16px] shadow-lg border border-zinc-800 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-widest text-zinc-400">Live Active Traffic</p>
+            <h3 className="text-3xl font-mono font-black text-white mt-1 flex items-center gap-2">
+              {visitorStats.liveVisitors}
+              <span className="inline-flex items-center text-xs font-sans font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                ● Live
+              </span>
+            </h3>
+            <p className="text-[11px] text-zinc-400 mt-1">Real-time deduplicated page sessions</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-zinc-800/80 flex items-center justify-center border border-zinc-700">
+            <Eye className="w-6 h-6 text-emerald-400" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200/60 p-6 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">This Month Visitors</p>
+            <h3 className="text-3xl font-mono font-bold text-zinc-900 mt-1">
+              {visitorStats.monthlyVisitors.toLocaleString()}
+            </h3>
+            <p className="text-[11px] text-zinc-500 mt-1">Unique visitors for current month</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center border border-blue-100">
+            <Calendar className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-zinc-200/60 p-6 rounded-[16px] shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-400">Overall Visitors</p>
+            <h3 className="text-3xl font-mono font-bold text-zinc-900 mt-1">
+              {visitorStats.overallVisitors.toLocaleString()}
+            </h3>
+            <p className="text-[11px] text-zinc-500 mt-1">Total unique visitors all-time</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center border border-purple-100">
+            <Globe className="w-6 h-6 text-purple-600" />
+          </div>
         </div>
       </div>
 

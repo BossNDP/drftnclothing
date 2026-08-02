@@ -27,9 +27,7 @@ import { getDeliveryEligibilityCacheOnly } from '@/lib/shipping-eligibility';
 
 export async function POST(request: Request) {
   const tStart = performance.now();
-  const logPerf = (label: string) => {
-    console.log(`[Perf] ${label}: ${(performance.now() - tStart).toFixed(1)}ms`);
-  };
+  const logPerf = (_label: string) => {};
 
   // Self-healing cleanup: run on ~2% of requests (fire-and-forget).
   // Triggering on every request AND awaiting it serializes all concurrent

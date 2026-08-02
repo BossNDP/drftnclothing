@@ -13,6 +13,7 @@ import SmoothScrollProvider from '@/components/SmoothScrollProvider';
 import { ClerkProvider } from '@clerk/nextjs';
 import { AuthSessionProvider } from '@/context/AuthContext';
 import { DriftModeProvider } from '@/context/DriftModeContext';
+import { VisitorTracker } from '@/components/VisitorTracker';
 import BfcacheHandler from '@/components/BfcacheHandler';
 
 import { Outfit, Oxanium, Space_Mono } from 'next/font/google';
@@ -246,6 +247,7 @@ export default function RootLayout({
                 <PushPrompt />
                 <BfcacheHandler />
                 <NotificationToast />
+                <VisitorTracker />
                 {/* Clerk Smart CAPTCHA anchor — must exist in DOM for Turnstile to mount */}
                 <div id="clerk-captcha" />
               </DriftModeProvider>

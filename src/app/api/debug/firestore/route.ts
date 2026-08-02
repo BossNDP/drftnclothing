@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return new NextResponse('Not Found', { status: 404 });
+  }
+
   const logs: string[] = [];
   const addLog = (msg: string) => {
     console.log(`[FirestoreDebug] ${msg}`);

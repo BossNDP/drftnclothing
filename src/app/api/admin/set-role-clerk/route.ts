@@ -68,8 +68,6 @@ export async function GET(request: Request) {
     const results: any[] = [];
 
     for (const email of emailsToPromote) {
-      console.log(`[Clerk Promo] Searching for user with email: ${email}`);
-
       const response = await client.users.getUserList({
         emailAddress: [email],
         limit: 1,
@@ -82,8 +80,6 @@ export async function GET(request: Request) {
         results.push({ email, status: 'Not Found', message: 'No user registered under this email in Clerk.' });
         continue;
       }
-
-      console.log(`[Clerk Promo] Found user ${user.id} for email ${email}. Promoting to admin...`);
 
       await client.users.updateUserMetadata(user.id, {
         publicMetadata: { role: 'admin' },

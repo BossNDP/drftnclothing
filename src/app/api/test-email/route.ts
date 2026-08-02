@@ -4,6 +4,10 @@ import { sendOrderSuccessEmail } from '@/lib/email';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
+  if (process.env.NODE_ENV === 'production') {
+    return new NextResponse('Not Found', { status: 404 });
+  }
+
   try {
     const url = new URL(request.url);
     const toEmail = url.searchParams.get('to') || 'drftnclothing@gmail.com';

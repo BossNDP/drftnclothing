@@ -130,37 +130,48 @@ export default clerkMiddleware(async (auth, request) => {
     );
   }
 
-  // 2. Log API Requests
-  if (pathname.startsWith('/api')) {
-    logApiRequest(ip, method, pathname);
-  }
-
-  // 3. Rate Limiting for API routes (exclude /api/orders/create as it uses its own Upstash Redis rate limiter)
+  // 2. Comprehensive Rate Limiting for API routes (exclude /api/orders/create as it uses its own Upstash Redis rate limiter)
   if (pathname.startsWith('/api/') && !pathname.startsWith('/api/orders/create')) {
     let limit = 60; // default 60 requests per minute
     let windowMs = 60000; // 1 minute
     
-    if (pathname.startsWith('/api/orders/track')) {
+    if (
+      pathname.startsWith('/api/auth/verify-phone') ||
+      pathname.startsWith('/api/auth/register-phone') ||
+      pathname.startsWith('/api/orders/verify-otp') ||
+      pathname.startsWith('/api/auth/check-phone')
+    ) {
+      limit = 5;
+    } else if (
+      pathname.startsWith('/api/checkout/reserve') ||
+      pathname.startsWith('/api/discount/validate') ||
+      pathname.startsWith('/api/drift-mode/generate-code') ||
+      pathname.startsWith('/api/drift-mode/redeem') ||
+      pathname.startsWith('/api/drift-mode/validate')
+    ) {
+      limit = 10;
+    } else if (pathname.startsWith('/api/orders/track')) {
       limit = 10;
       windowMs = 600000; // 10 minutes
     } else if (pathname.startsWith('/api/shipping/serviceability')) {
       limit = 5;
       windowMs = 60000;
-    } else if (pathname.startsWith('/api/discount/validate')) {
-      limit = 5;
     } else if (pathname.startsWith('/api/orders/verify-payment')) {
       limit = 10;
+    } else if (pathname.startsWith('/api/visitors/heartbeat')) {
+      limit = 30;
+    } else if (pathname.startsWith('/api/stock/check')) {
+      limit = 30;
     } else if (pathname.startsWith('/api/admin/push/announce-')) {
       limit = 5;
       windowMs = 300000; // 5 minutes
     } else if (pathname === '/api/push/subscribe' || pathname === '/api/push/unsubscribe') {
       limit = 10;
-      windowMs = 60000; // 1 minute
+      windowMs = 60000;
     }
 
     const rateLimitResult = await rateLimit(`ratelimit:${ip}:${pathname}`, limit, windowMs);
     if (!rateLimitResult.success) {
-      console.warn(`[Rate Limit Exceeded] IP: ${ip}, Path: ${pathname}`);
       return new NextResponse(
         JSON.stringify({ error: `Too many requests. Please retry in ${rateLimitResult.reset} seconds.` }),
         {

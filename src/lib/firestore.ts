@@ -33,12 +33,9 @@ if (hasCredentials) {
 
     const dbId = process.env.FIREBASE_DATABASE_ID || 'default';
     db = getFirestore(app, dbId);
-    console.log(`[Firestore] Real client initialized successfully (Project: ${process.env.FIREBASE_PROJECT_ID}, Database: ${dbId}, Path: ${(db as any).formattedName}).`);
   } catch (err) {
     console.error('[Firestore] Failed to initialize real client, falling back to mock:', err);
   }
-} else {
-  console.log('[Firestore] Credentials absent. Running in Redis-based sandbox mock mode.');
 }
 
 export interface QueryCondition {

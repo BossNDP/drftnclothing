@@ -86,7 +86,6 @@ export async function POST(
         if (!courierName) {
           courierName = 'Borzo Express';
         }
-        console.log('[Borzo Drop-in Mock Created]', awb);
       } else {
         try {
           const endpoint = process.env.BORZO_API_URL_CREATE || 'https://robot.borzodelivery.com/api/business/1.8/create-order';

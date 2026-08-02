@@ -14,8 +14,6 @@ export async function cleanupExpiredOrders() {
     const rawCheckouts = await firestoreService.queryDocs('pending_checkouts', {});
     const checkouts = rawCheckouts.filter((c: any) => c.status === 'pending' || c.status === 'expired');
 
-    console.log(`[Order Cleanup] Processing ${checkouts.length} active/expired checkouts from Firestore...`);
-
     // 2. Filter and process checkouts
     const { releaseUnitSafe } = await import('@/lib/stock-gate');
     const { sendAbandonedCartEmail, sendPaymentPendingReminderEmail } = await import('@/lib/email');

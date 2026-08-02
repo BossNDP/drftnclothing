@@ -413,3 +413,15 @@ export const driftModeCoupons = pgTable("drift_mode_coupons", {
   index('drift_mode_coupons_code_idx').on(t.code),
 ]);
 
+// 23. Unique Visitors Table
+export const uniqueVisitors = pgTable("unique_visitors", {
+  visitor_id: text("visitor_id").primaryKey(),
+  first_seen_at: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  last_seen_at: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  created_month: text("created_month").notNull(), // format 'YYYY-MM'
+}, (t) => [
+  index('unique_visitors_created_month_idx').on(t.created_month),
+  index('unique_visitors_last_seen_at_idx').on(t.last_seen_at),
+]);
+
+

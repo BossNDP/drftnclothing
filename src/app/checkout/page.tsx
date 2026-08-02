@@ -489,13 +489,6 @@ function isGibberishText(str: string): boolean {
 
       // Scenario A: Online Payment via Razorpay (Prepaid & COD Deposit)
       if (storeConfig.razorpayActive && orderData.razorpayOrderId) {
-        console.log('[Checkout] Launching Razorpay SDK modal for payment...', {
-          paymentMethod,
-          orderId: orderData.orderId,
-          razorpayOrderId: orderData.razorpayOrderId,
-          amountPaise: orderData.amount,
-        });
-
         const sdkLoaded = await loadRazorpaySDK();
         if (!sdkLoaded) {
           console.error('[Checkout] Razorpay SDK failed to load');
@@ -520,13 +513,6 @@ function isGibberishText(str: string): boolean {
             color: '#E63329',
           },
           handler: async function (response: any) {
-            console.log('[Checkout Handler] Razorpay callback received:', {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              orderId: orderData.orderId,
-              isCodDeposit,
-            });
-
             setIsProcessing(true);
             try {
               const verifyRes = await fetch('/api/orders/verify-payment', {
@@ -548,7 +534,6 @@ function isGibberishText(str: string): boolean {
 
               const verifyData = await verifyRes.json();
               if (verifyData.success) {
-                console.log('[Checkout Handler] Order confirmed successfully:', verifyData);
                 addToast(
                   isCodDeposit
                     ? '₹200 COD deposit verified! Order confirmed.'

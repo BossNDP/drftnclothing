@@ -142,8 +142,6 @@ export async function POST(request: Request) {
         console.error('Failed to fetch Razorpay payment entity:', err);
         return NextResponse.json({ error: 'Failed to verify payment amount with gateway' }, { status: 400 });
       }
-    } else {
-      console.log(`Bypassing signature validation for Mock Order: ${razorpay_order_id}`);
     }
 
     if (!paymentAmountVerified) {
