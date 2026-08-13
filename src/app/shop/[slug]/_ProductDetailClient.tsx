@@ -33,6 +33,7 @@ import ProductGallery from '@/components/ProductGallery';
 import { Product } from '@/types';
 import { useCartStore } from '@/lib/cartStore';
 import { useWishlistStore } from '@/lib/wishlistStore';
+import { trackAddToCart } from '@/lib/meta-pixel';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { toast } from '@/lib/toast';
 import { ProductDetailSkeleton } from '@/components/Skeletons';
@@ -435,6 +436,13 @@ export default function ProductDetailClient({
       },
       quantity
     );
+
+    trackAddToCart({
+      productId: product.id,
+      productName: product.name,
+      price: currentPrice / 100,
+      currency: 'INR',
+    });
 
     toast.success(`Added ${product.name} (${selectedSize}) to bag`);
     setTimeout(() => setIsAdding(false), 600);

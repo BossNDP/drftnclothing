@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { CheckCircle, ShoppingBag, MapPin, ClipboardList } from 'lucide-react';
 import { cookies } from 'next/headers';
 import { verifyToken } from '@/lib/jwt';
+import MetaPurchaseTracker from '@/components/MetaPurchaseTracker';
 
 export const metadata = {
   title: 'Order Confirmed',
@@ -63,8 +64,20 @@ export default async function OrderConfirmationPage({ params }: { params: { orde
 
   const isPickup = order.fulfillment_type === 'pickup';
 
+  const itemContentIds = Array.isArray(order.items)
+    ? (order.items as any[]).map((item) => String(item.id || item.product_id || '')).filter(Boolean)
+    : [];
+
   return (
     <main className="min-h-screen bg-black text-white pt-28 pb-20 px-4 md:px-8">
+      {/* Idempotent Meta Pixel Purchase Tracker */}
+      <MetaPurchaseTracker
+        orderId={order.id}
+        contentIds={itemContentIds}
+        totalValue={order.total / 100}
+        currency="INR"
+      />
+
       <div className="max-w-xl mx-auto text-center space-y-8 animate-fade-in">
         
         {/* Success Icon */}

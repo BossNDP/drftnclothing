@@ -13,6 +13,7 @@ import SignatureGallery from '@/components/SignatureGallery';
 import { Product, Category } from '@/types';
 import { useCartStore } from '@/lib/cartStore';
 import { useWishlistStore } from '@/lib/wishlistStore';
+import { trackAddToCart } from '@/lib/meta-pixel';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useAnimationStore } from '@/lib/animationStore';
 import { toast } from '@/lib/toast';
@@ -543,6 +544,13 @@ function ShopContent() {
       image: product.images[0] || '',
       size: size,
     }, 1);
+
+    trackAddToCart({
+      productId: product.id,
+      productName: product.name,
+      price: product.price / 100,
+      currency: 'INR',
+    });
 
     if (e) {
       let cartEl = document.getElementById('navbar-cart-btn');
