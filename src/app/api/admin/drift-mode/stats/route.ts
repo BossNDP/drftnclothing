@@ -26,7 +26,7 @@ export async function GET() {
 
     return NextResponse.json({
       is_active: settings?.is_active || false,
-      discount_percent: settings?.discount_percent || 20,
+      discount_percent: settings?.discount_percent || 30,
       stats: {
         totalCodes,
         redeemedCodes,

@@ -187,7 +187,7 @@ export const DriftModePopup: React.FC = () => {
           {isSignedIn ? (
             <div className="w-full mb-3">
               <div className="bg-zinc-900/90 border border-dashed border-zinc-700 rounded-xl p-3 flex items-center justify-between font-mono font-bold text-sm tracking-[0.18em] text-white">
-                <span className="select-all text-white font-mono">{userCode || 'DRFTNMODEON20'}</span>
+                <span className="select-all text-white font-mono">{userCode || 'DRIFTMODEON30'}</span>
 
                 <button
                   type="button"

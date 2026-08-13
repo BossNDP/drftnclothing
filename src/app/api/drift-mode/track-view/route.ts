@@ -54,7 +54,7 @@ export async function POST() {
       // Upsert coupon entry with popup_shown_count = 1
       await db.execute(sql`
         INSERT INTO drift_mode_coupons (user_id, code, discount_percent, popup_shown_count)
-        VALUES (${userId}, ${'DRFTNMODEON20'}, 20, 1)
+        VALUES (${userId}, ${'DRIFTMODEON30'}, 30, 1)
         ON CONFLICT (user_id) DO UPDATE
         SET popup_shown_count = drift_mode_coupons.popup_shown_count + 1;
       `);

@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     const { is_active, discount_percent } = body;
 
     const newIsActive = typeof is_active === 'boolean' ? is_active : false;
-    const newDiscount = typeof discount_percent === 'number' && discount_percent > 0 ? Math.min(100, Math.max(1, Math.round(discount_percent))) : 20;
+    const newDiscount = typeof discount_percent === 'number' && discount_percent > 0 ? Math.min(100, Math.max(1, Math.round(discount_percent))) : 30;
 
     const [existing] = await db
       .select()

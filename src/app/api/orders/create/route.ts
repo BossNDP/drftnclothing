@@ -438,7 +438,7 @@ export async function POST(request: Request) {
     let discountAmount = 0;
     let validatedCode: string | undefined = undefined;
 
-    const isDriftOrderCode = cleanCode && (cleanCode === 'DRFTNMODEON20' || cleanCode === 'DRIFTMODE20' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
+    const isDriftOrderCode = cleanCode && (cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT'));
 
     if (isDriftOrderCode) {
       const [settings] = await db
@@ -447,7 +447,7 @@ export async function POST(request: Request) {
         .where(eq(schema.driftModeSettings.id, 1))
         .limit(1);
 
-      const dPercent = settings?.discount_percent || 20;
+      const dPercent = settings?.discount_percent || 30;
       discountAmount = Math.round(calculatedSubtotal * (dPercent / 100));
       discountAmount = Math.min(discountAmount, calculatedSubtotal);
       validatedCode = cleanCode;

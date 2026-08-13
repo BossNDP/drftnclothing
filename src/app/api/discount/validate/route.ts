@@ -16,8 +16,8 @@ export async function POST(request: Request) {
     const { code, subtotal, email, phone } = validationResult.data;
     const cleanCode = code.toUpperCase().trim();
 
-    // Check if Drift Mode coupon (DRFTNMODEON20, DRIFTMODE20, DRIFT-*)
-    const isDriftCode = cleanCode === 'DRFTNMODEON20' || cleanCode === 'DRIFTMODE20' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT');
+    // Check if Drift Mode coupon (DRIFTMODEON30, DRIFT-*)
+    const isDriftCode = cleanCode === 'DRIFTMODEON30' || cleanCode.startsWith('DRIFT-') || cleanCode.startsWith('DRIFT');
 
     if (isDriftCode) {
       const [settings] = await db
@@ -60,9 +60,9 @@ export async function POST(request: Request) {
       return NextResponse.json({
         valid: true,
         discount_type: 'percent',
-        discount_value: settings.discount_percent || 20,
+        discount_value: settings.discount_percent || 30,
         max_discount_amount: null,
-        message: `DRIFT MODE — ${settings.discount_percent || 20}% OFF APPLIED`,
+        message: `DRIFT MODE — ${settings.discount_percent || 30}% OFF APPLIED`,
       });
     }
 

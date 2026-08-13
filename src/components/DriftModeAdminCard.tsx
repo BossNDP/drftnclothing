@@ -5,7 +5,7 @@ import { Zap } from 'lucide-react';
 
 export const DriftModeAdminCard: React.FC = () => {
   const [isActive, setIsActive] = useState<boolean>(false);
-  const [discountPercent, setDiscountPercent] = useState<number>(20);
+  const [discountPercent, setDiscountPercent] = useState<number>(30);
   const [stats, setStats] = useState<{ totalCodes: number; redeemedCodes: number; conversionRate: number }>({
     totalCodes: 0,
     redeemedCodes: 0,
@@ -20,7 +20,7 @@ export const DriftModeAdminCard: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setIsActive(!!data.is_active);
-        setDiscountPercent(data.discount_percent || 20);
+        setDiscountPercent(data.discount_percent || 30);
         setStats(data.stats || { totalCodes: 0, redeemedCodes: 0, conversionRate: 0 });
       }
     } catch (err) {
@@ -59,7 +59,7 @@ export const DriftModeAdminCard: React.FC = () => {
 
   const handlePercentChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
-    const clamped = isNaN(val) ? 20 : Math.min(100, Math.max(1, val));
+    const clamped = isNaN(val) ? 30 : Math.min(100, Math.max(1, val));
     setDiscountPercent(clamped);
 
     try {

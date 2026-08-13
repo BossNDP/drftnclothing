@@ -393,7 +393,7 @@ export const auditLogs = pgTable('audit_logs', {
 export const driftModeSettings = pgTable("drift_mode_settings", {
   id: serial("id").primaryKey(),
   is_active: boolean("is_active").notNull().default(false),
-  discount_percent: integer("discount_percent").notNull().default(20),
+  discount_percent: integer("discount_percent").notNull().default(30),
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

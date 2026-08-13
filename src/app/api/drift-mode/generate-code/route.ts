@@ -14,7 +14,7 @@ async function ensureTables() {
       CREATE TABLE IF NOT EXISTS drift_mode_settings (
         id SERIAL PRIMARY KEY,
         is_active BOOLEAN NOT NULL DEFAULT true,
-        discount_percent INTEGER NOT NULL DEFAULT 20,
+        discount_percent INTEGER NOT NULL DEFAULT 30,
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
@@ -28,11 +28,14 @@ async function ensureTables() {
         order_id UUID,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+
+      UPDATE drift_mode_settings SET discount_percent = 30 WHERE id = 1 AND (discount_percent IS NULL OR discount_percent = 20);
+      DELETE FROM discount_codes WHERE code IN ('DRIFTMODEON20', 'DRFTNMODEON20', 'DRIFTMODE20');
     `);
   } catch {}
 }
 
-const STATIC_DRIFT_CODE = 'DRFTNMODEON20';
+const STATIC_DRIFT_CODE = 'DRIFTMODEON30';
 
 async function getUserId(): Promise<string | null> {
   try {

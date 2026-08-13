@@ -18,7 +18,7 @@ interface DriftModeContextType {
 
 const DriftModeContext = createContext<DriftModeContextType>({
   isActive: true,
-  discountPercent: 20,
+  discountPercent: 30,
   userCode: null,
   codeUsed: false,
   codeGenerated: false,
@@ -31,7 +31,7 @@ const DriftModeContext = createContext<DriftModeContextType>({
 
 export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isActive, setIsActive] = useState<boolean>(true);
-  const [discountPercent, setDiscountPercent] = useState<number>(20);
+  const [discountPercent, setDiscountPercent] = useState<number>(30);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [codeUsed, setCodeUsed] = useState<boolean>(false);
   const [codeGenerated, setCodeGenerated] = useState<boolean>(false);
@@ -45,7 +45,7 @@ export const DriftModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (res.ok) {
         const data = await res.json();
         setIsActive(!!data.is_active);
-        setDiscountPercent(data.discount_percent || 20);
+        setDiscountPercent(data.discount_percent || 30);
         setPopupShownCount(data.popup_shown_count || 0);
         setCodeGenerated(!!data.code_generated);
         setCodeUsed(!!data.code_used);
